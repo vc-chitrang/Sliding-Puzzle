@@ -12,6 +12,7 @@ public class ArrowController : MonoBehaviour
     private Text _label;
     private Coroutine _pulseRoutine;
     private Action<Vector2Int> _pressedAction;
+    private float _baseSize = 56f;
 
     public Vector2Int Direction { get; private set; }
 
@@ -42,7 +43,10 @@ public class ArrowController : MonoBehaviour
         _rectTransform = GetComponent<RectTransform>();
         _button = GetComponent<Button>();
 
-        _rectTransform.sizeDelta = new Vector2(70f, 70f);
+        _rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+        _rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+        _rectTransform.pivot = new Vector2(0.5f, 0.5f);
+        _rectTransform.sizeDelta = new Vector2(_baseSize, _baseSize);
 
         Image background = GetComponent<Image>();
         background.color = new Color(0.15f, 0.72f, 0.25f, 0.88f);
@@ -77,9 +81,11 @@ public class ArrowController : MonoBehaviour
         SetVisible(false);
     }
 
-    public void SetScreenPosition(Vector2 screenPoint, Vector2 offset)
+    public void SetLayout(Vector2 anchoredPosition, float buttonSize)
     {
-        _rectTransform.position = screenPoint + offset;
+        _baseSize = buttonSize;
+        _rectTransform.anchoredPosition = anchoredPosition;
+        _rectTransform.sizeDelta = new Vector2(buttonSize, buttonSize);
     }
 
     public void SetVisible(bool isVisible)

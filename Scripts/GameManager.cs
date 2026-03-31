@@ -26,6 +26,7 @@ public class GameManager : MonoBehaviour
     private Texture2D _currentTexture;
     private Material _runtimeMaterial;
     private UIManager _uiManager;
+    private RectTransform _emptySlotOverlay;
     private Vector2 _normalizedBoardScale = Vector2.one;
     private bool _isAnimating;
     private bool _isSolved;
@@ -65,6 +66,7 @@ public class GameManager : MonoBehaviour
         }
 
         _uiManager.Initialize(this);
+        _emptySlotOverlay = _uiManager.GetOrCreateEmptySlotOverlay();
         CreateRuntimeMaterial();
         CreateArrowButtons();
     }
@@ -399,10 +401,10 @@ public class GameManager : MonoBehaviour
 
         return new[]
         {
-            new Vector2(minU, maxV),
-            new Vector2(maxU, maxV),
             new Vector2(minU, minV),
-            new Vector2(maxU, minV)
+            new Vector2(maxU, minV),
+            new Vector2(minU, maxV),
+            new Vector2(maxU, maxV)
         };
     }
 
@@ -477,8 +479,8 @@ public class GameManager : MonoBehaviour
             _uiManager.SetStatus($"Moves: {_moveCount}");
         }
 
-        UpdateArrowButtons();
         _isAnimating = false;
+        UpdateArrowButtons();
     }
 
     private void ShuffleBoard()
@@ -547,8 +549,25 @@ public class GameManager : MonoBehaviour
             return;
         }
 
-        Vector3 cellWorldPosition = gameTransform.TransformPoint(GetCellLocalPosition(_emptyCell));
-        Vector3 screenPoint = gameplayCamera.WorldToScreenPoint(cellWorldPosition);
+        if (_emptySlotOverlay == null)
+        {
+            _emptySlotOverlay = _uiManager.GetOrCreateEmptySlotOverlay();
+        }
+
+        Vector3 slotCenterWorld = gameTransform.TransformPoint(GetCellLocalPosition(_emptyCell));
+        Vector3 slotRightWorld = gameTransform.TransformPoint(GetCellLocalPosition(_emptyCell) + new Vector3(GetTileLocalScale().x * 0.5f, 0f, 0f));
+        Vector3 slotUpWorld = gameTransform.TransformPoint(GetCellLocalPosition(_emptyCell) + new Vector3(0f, GetTileLocalScale().y * 0.5f, 0f));
+
+        Vector2 screenCenter = RectTransformUtility.WorldToScreenPoint(gameplayCamera, slotCenterWorld);
+        float screenHalfWidth = Mathf.Abs(RectTransformUtility.WorldToScreenPoint(gameplayCamera, slotRightWorld).x - screenCenter.x);
+        float screenHalfHeight = Mathf.Abs(RectTransformUtility.WorldToScreenPoint(gameplayCamera, slotUpWorld).y - screenCenter.y);
+
+        _emptySlotOverlay.position = screenCenter;
+        _emptySlotOverlay.sizeDelta = new Vector2(screenHalfWidth * 2f, screenHalfHeight * 2f);
+
+        float buttonSize = Mathf.Clamp(Mathf.Min(_emptySlotOverlay.sizeDelta.x, _emptySlotOverlay.sizeDelta.y) * 0.34f, 26f, 64f);
+        float horizontalOffset = (_emptySlotOverlay.sizeDelta.x * 0.5f) - (buttonSize * 0.62f);
+        float verticalOffset = (_emptySlotOverlay.sizeDelta.y * 0.5f) - (buttonSize * 0.62f);
 
         for (int i = 0; i < Directions.Length; i++)
         {
@@ -560,15 +579,15 @@ public class GameManager : MonoBehaviour
             arrow.SetVisible(isValid);
             if (isValid)
             {
-                arrow.SetScreenPosition(screenPoint, GetArrowOffset(direction));
+                arrow.transform.SetParent(_emptySlotOverlay, false);
+                arrow.SetLayout(GetArrowAnchoredPosition(direction, horizontalOffset, verticalOffset), buttonSize);
             }
         }
     }
 
-    private Vector2 GetArrowOffset(Vector2Int direction)
+    private Vector2 GetArrowAnchoredPosition(Vector2Int direction, float horizontalOffset, float verticalOffset)
     {
-        const float distance = 92f;
-        return new Vector2(direction.x * distance, direction.y * distance);
+        return new Vector2(direction.x * horizontalOffset, direction.y * verticalOffset);
     }
 
     private bool CheckSolved()

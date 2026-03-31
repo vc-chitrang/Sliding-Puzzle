@@ -12,7 +12,7 @@ This module is set up as a dynamic image-based sliding puzzle that builds its bo
 - Preserved image aspect ratio on the game board
 - Two movement inputs:
   - click/tap tiles adjacent to the empty slot
-  - press the green arrow buttons around the empty slot
+  - press the green arrow buttons positioned inside the empty slot
 - Touch and mouse input use the same move validation rules
 - Runtime shuffle using only valid moves to keep boards solvable
 - Timer that starts on the first player move
@@ -20,6 +20,8 @@ This module is set up as a dynamic image-based sliding puzzle that builds its bo
 - Runtime UI with title, timer, best score, reset, preview, and random-image switching
 - Full-image preview overlay that temporarily pauses interaction and keeps the source image aspect ratio
 - Uses Unity's current built-in runtime font `LegacyRuntime.ttf` for generated UI text
+- Arrow controls stay visible after each move and update in-place inside the current empty tile
+- UV mapping keeps the source image upright on the Y axis
 
 ## Runtime Scripts
 

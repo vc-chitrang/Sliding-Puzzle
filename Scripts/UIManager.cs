@@ -15,6 +15,7 @@ public class UIManager : MonoBehaviour
     private GameObject _previewPanel;
     private Button _previewButton;
     private AspectRatioFitter _previewFitter;
+    private RectTransform _emptySlotOverlay;
 
     public RectTransform ArrowLayer { get; private set; }
     public bool IsPreviewVisible => _previewPanel != null && _previewPanel.activeSelf;
@@ -64,6 +65,22 @@ public class UIManager : MonoBehaviour
         }
 
         _previewButton.GetComponentInChildren<Text>().text = isVisible ? "Close Preview" : "Preview";
+    }
+
+    public RectTransform GetOrCreateEmptySlotOverlay()
+    {
+        if (_emptySlotOverlay != null)
+        {
+            return _emptySlotOverlay;
+        }
+
+        GameObject overlay = new GameObject("EmptySlotOverlay", typeof(RectTransform));
+        overlay.transform.SetParent(ArrowLayer, false);
+        _emptySlotOverlay = overlay.GetComponent<RectTransform>();
+        _emptySlotOverlay.anchorMin = new Vector2(0.5f, 0.5f);
+        _emptySlotOverlay.anchorMax = new Vector2(0.5f, 0.5f);
+        _emptySlotOverlay.pivot = new Vector2(0.5f, 0.5f);
+        return _emptySlotOverlay;
     }
 
     private void BuildCanvas()
