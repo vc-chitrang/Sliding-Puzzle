@@ -273,6 +273,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   gameTransform: {fileID: 215531184}
   piecePrefab: {fileID: 9132147156500669844, guid: 9620031b63bc33442ba8712a42b50e1f, type: 3}
+  gameplayCamera: {fileID: 519420031}
+  boardWorldSize: {x: 6, y: 6}
+  tileGapRatio: 0.08
+  tileMoveDuration: 0.14
+  shuffleMoveMultiplier: 3
+  imagesFolderRelativeToAssets: Games/Sliding-Puzzle/Textures
 --- !u!4 &1754090835
 Transform:
   m_ObjectHideFlags: 0

@@ -19,6 +19,7 @@ This module is set up as a dynamic image-based sliding puzzle that builds its bo
 - Best-time tracking per image and grid size with `PlayerPrefs`
 - Runtime UI with title, timer, best score, reset, preview, and random-image switching
 - Full-image preview overlay that temporarily pauses interaction and keeps the source image aspect ratio
+- Uses Unity's current built-in runtime font `LegacyRuntime.ttf` for generated UI text
 
 ## Runtime Scripts
 

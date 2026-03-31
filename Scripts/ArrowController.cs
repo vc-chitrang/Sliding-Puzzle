@@ -5,6 +5,8 @@ using UnityEngine.UI;
 
 public class ArrowController : MonoBehaviour
 {
+    private const string RuntimeFontName = "LegacyRuntime.ttf";
+
     private RectTransform _rectTransform;
     private Button _button;
     private Text _label;
@@ -64,7 +66,7 @@ public class ArrowController : MonoBehaviour
 
         _label = textRoot.GetComponent<Text>();
         _label.text = label;
-        _label.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+        _label.font = Resources.GetBuiltinResource<Font>(RuntimeFontName);
         _label.fontStyle = FontStyle.Bold;
         _label.alignment = TextAnchor.MiddleCenter;
         _label.color = Color.white;

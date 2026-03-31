@@ -4,6 +4,8 @@ using UnityEngine.UI;
 
 public class UIManager : MonoBehaviour
 {
+    private const string RuntimeFontName = "LegacyRuntime.ttf";
+
     private GameManager _gameManager;
     private Text _titleText;
     private Text _timerText;
@@ -205,7 +207,7 @@ public class UIManager : MonoBehaviour
         textObject.transform.SetParent(parent, false);
 
         Text text = textObject.GetComponent<Text>();
-        text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+        text.font = Resources.GetBuiltinResource<Font>(RuntimeFontName);
         text.fontSize = fontSize;
         text.fontStyle = fontStyle;
         text.alignment = alignment;
