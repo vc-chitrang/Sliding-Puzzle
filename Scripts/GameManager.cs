@@ -1,106 +1,191 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class GameManager : MonoBehaviour {
   [SerializeField] private Transform gameTransform;
   [SerializeField] private Transform piecePrefab;
+  [SerializeField] private float gapThickness = 0.01f;
 
-  private List<Transform> pieces;
+  private readonly List<Transform> pieces = new List<Transform>();
+  private Vector3 initialBoardScale;
   private int emptyLocation;
-  private int size;
+  private Vector2Int size;
   private bool shuffling = false;
 
-  // Create the game setup with size x size pieces.
-  private void CreateGamePieces(float gapThickness) {
-    // This is the width of each tile.
-    float width = 1 / (float)size;
-    for (int row = 0; row < size; row++) {
-      for (int col = 0; col < size; col++) {
-        Transform piece = Instantiate(piecePrefab, gameTransform);
-        pieces.Add(piece);
-        // Pieces will be in a game board going from -1 to +1.
-        piece.localPosition = new Vector3(-1 + (2 * width * col) + width,
-                                          +1 - (2 * width * row) - width,
-                                          0);
-        piece.localScale = ((2 * width) - gapThickness) * Vector3.one;
-        piece.name = $"{(row * size) + col}";
-        // We want an empty space in the bottom right.
-        if ((row == size - 1) && (col == size - 1)) {
-          emptyLocation = (size * size) - 1;
-          piece.gameObject.SetActive(false);
-        } else {
-          // We want to map the UV coordinates appropriately, they are 0->1.
-          float gap = gapThickness / 2;
-          Mesh mesh = piece.GetComponent<MeshFilter>().mesh;
-          Vector2[] uv = new Vector2[4];
-          // UV coord order: (0, 1), (1, 1), (0, 0), (1, 0)
-          uv[0] = new Vector2((width * col) + gap, 1 - ((width * (row + 1)) - gap));
-          uv[1] = new Vector2((width * (col + 1)) - gap, 1 - ((width * (row + 1)) - gap));
-          uv[2] = new Vector2((width * col) + gap, 1 - ((width * row) + gap));
-          uv[3] = new Vector2((width * (col + 1)) - gap, 1 - ((width * row) + gap));
-          // Assign our new UVs to the mesh.
-          mesh.uv = uv;
-        }
-      }
+  private void Awake() {
+    if (gameTransform != null) {
+      initialBoardScale = gameTransform.localScale;
     }
   }
 
-  // Start is called before the first frame update
-  void Start() {
-    pieces = new List<Transform>();
-    size = 4;
-    CreateGamePieces(0.01f);
+  private void Start() {
+    pieces.Clear();
+    ConfigureBoardFromTexture();
+    CreateGamePieces(gapThickness);
   }
 
-  // Update is called once per frame
-  void Update() {
-    // Check for completion.
+  private void Update() {
     if (!shuffling && CheckCompletion()) {
       shuffling = true;
       StartCoroutine(WaitShuffle(0.5f));
     }
 
-    // On click send out ray to see if we click a piece.
     if (Input.GetMouseButtonDown(0)) {
       RaycastHit2D hit = Physics2D.Raycast(Camera.main.ScreenToWorldPoint(Input.mousePosition), Vector2.zero);
       if (hit) {
-        // Go through the list, the index tells us the position.
         for (int i = 0; i < pieces.Count; i++) {
           if (pieces[i] == hit.transform) {
-            // Check each direction to see if valid move.
-            // We break out on success so we don't carry on and swap back again.
-            if (SwapIfValid(i, -size, size)) { break; }
-            if (SwapIfValid(i, +size, size)) { break; }
+            if (SwapIfValid(i, -size.x, -1)) { break; }
+            if (SwapIfValid(i, +size.x, -1)) { break; }
             if (SwapIfValid(i, -1, 0)) { break; }
-            if (SwapIfValid(i, +1, size - 1)) { break; }
+            if (SwapIfValid(i, +1, size.x - 1)) { break; }
           }
         }
       }
     }
   }
 
-  // colCheck is used to stop horizontal moves wrapping.
-  private bool SwapIfValid(int i, int offset, int colCheck) {
-    if (((i % size) != colCheck) && ((i + offset) == emptyLocation)) {
-      // Swap them in game state.
-      (pieces[i], pieces[i + offset]) = (pieces[i + offset], pieces[i]);
-      // Swap their transforms.
-      (pieces[i].localPosition, pieces[i + offset].localPosition) = ((pieces[i + offset].localPosition, pieces[i].localPosition));
-      // Update empty location.
-      emptyLocation = i;
-      return true;
+  private void ConfigureBoardFromTexture() {
+    Texture texture = GetPuzzleTexture();
+    if ((texture == null) || (texture.width <= 0) || (texture.height <= 0)) {
+      size = new Vector2Int(4, 4);
+      ApplyBoardScale(1f);
+      Debug.LogWarning("GameManager could not read a valid main texture. Falling back to a 4x4 square puzzle.");
+      return;
     }
-    return false;
+
+    size = DetermineGridSize(texture.width, texture.height);
+    ApplyBoardScale((float)texture.width / texture.height);
+    Debug.Log($"Resolution: {texture.width}x{texture.height}, Grid: {size}");
   }
 
-  // We name the pieces in order so we can use this to check completion.
+  private Texture GetPuzzleTexture() {
+    if (piecePrefab == null) {
+      return null;
+    }
+
+    MeshRenderer meshRenderer = piecePrefab.GetComponent<MeshRenderer>();
+    if ((meshRenderer == null) || (meshRenderer.sharedMaterial == null)) {
+      return null;
+    }
+
+    return meshRenderer.sharedMaterial.mainTexture;
+  }
+
+  private Vector2Int DetermineGridSize(int width, int height) {
+    if (width > height) {
+      return new Vector2Int(4, 3);
+    }
+
+    if (height > width) {
+      return new Vector2Int(3, 4);
+    }
+
+    return new Vector2Int(4, 4);
+  }
+
+  private void ApplyBoardScale(float aspect) {
+    if (gameTransform == null) {
+      return;
+    }
+
+    if (initialBoardScale == Vector3.zero) {
+      initialBoardScale = gameTransform.localScale;
+    }
+
+    float baseScale = Mathf.Max(initialBoardScale.x, initialBoardScale.y);
+    Vector3 scaledBoard = initialBoardScale;
+
+    if (aspect > 1f) {
+      scaledBoard.x = baseScale;
+      scaledBoard.y = baseScale / aspect;
+    } else if (aspect < 1f) {
+      scaledBoard.x = baseScale * aspect;
+      scaledBoard.y = baseScale;
+    } else {
+      scaledBoard.x = baseScale;
+      scaledBoard.y = baseScale;
+    }
+
+    gameTransform.localScale = scaledBoard;
+  }
+
+  // Create the game setup using the current rectangular grid.
+  private void CreateGamePieces(float gap) {
+    float tileWidth = 1f / size.x;
+    float tileHeight = 1f / size.y;
+    float uvWidth = 1f / size.x;
+    float uvHeight = 1f / size.y;
+    float uvGapX = Mathf.Min(uvWidth * 0.45f, gap * 0.5f);
+    float uvGapY = Mathf.Min(uvHeight * 0.45f, gap * 0.5f);
+
+    for (int row = 0; row < size.y; row++) {
+      for (int col = 0; col < size.x; col++) {
+        int index = GetIndex(row, col);
+        Transform piece = Instantiate(piecePrefab, gameTransform);
+        pieces.Add(piece);
+
+        piece.localPosition = new Vector3(
+          -1f + (2f * tileWidth * col) + tileWidth,
+          +1f - (2f * tileHeight * row) - tileHeight,
+          0f
+        );
+
+        piece.localScale = new Vector3(
+          Mathf.Max(0.01f, (2f * tileWidth) - gap),
+          Mathf.Max(0.01f, (2f * tileHeight) - gap),
+          1f
+        );
+
+        piece.name = index.ToString();
+
+        if ((row == size.y - 1) && (col == size.x - 1)) {
+          emptyLocation = index;
+          piece.gameObject.SetActive(false);
+        } else {
+          Mesh mesh = piece.GetComponent<MeshFilter>().mesh;
+          Vector2[] uv = new Vector2[4];
+
+          uv[0] = new Vector2((uvWidth * col) + uvGapX, 1f - ((uvHeight * (row + 1)) - uvGapY));
+          uv[1] = new Vector2((uvWidth * (col + 1)) - uvGapX, 1f - ((uvHeight * (row + 1)) - uvGapY));
+          uv[2] = new Vector2((uvWidth * col) + uvGapX, 1f - ((uvHeight * row) + uvGapY));
+          uv[3] = new Vector2((uvWidth * (col + 1)) - uvGapX, 1f - ((uvHeight * row) + uvGapY));
+
+          mesh.uv = uv;
+        }
+      }
+    }
+  }
+
+  private int GetIndex(int row, int col) {
+    return (row * size.x) + col;
+  }
+
+  // blockedColumn stops horizontal moves from wrapping into the next row.
+  private bool SwapIfValid(int index, int offset, int blockedColumn) {
+    if ((blockedColumn >= 0) && ((index % size.x) == blockedColumn)) {
+      return false;
+    }
+
+    int targetIndex = index + offset;
+    if ((targetIndex < 0) || (targetIndex >= pieces.Count) || (targetIndex != emptyLocation)) {
+      return false;
+    }
+
+    (pieces[index], pieces[targetIndex]) = (pieces[targetIndex], pieces[index]);
+    (pieces[index].localPosition, pieces[targetIndex].localPosition) = (pieces[targetIndex].localPosition, pieces[index].localPosition);
+    emptyLocation = index;
+    return true;
+  }
+
   private bool CheckCompletion() {
     for (int i = 0; i < pieces.Count; i++) {
-      if (pieces[i].name != $"{i}") {
+      if (pieces[i].name != i.ToString()) {
         return false;
       }
     }
+
     return true;
   }
 
@@ -110,27 +195,28 @@ public class GameManager : MonoBehaviour {
     shuffling = false;
   }
 
-  // Brute force shuffling.
+  // Brute force shuffling using only legal moves keeps the board reachable.
   private void Shuffle() {
     int count = 0;
-    int last = 0;
-    while (count < (size * size * size)) {
-      // Pick a random location.
-      int rnd = Random.Range(0, size * size);
-      // Only thing we forbid is undoing the last move.
-      if (rnd == last) { continue; }
+    int last = emptyLocation;
+    int shuffleTarget = pieces.Count * Mathf.Max(size.x, size.y);
+
+    while (count < shuffleTarget) {
+      int rnd = Random.Range(0, pieces.Count);
+      if (rnd == last) {
+        continue;
+      }
+
       last = emptyLocation;
-      // Try surrounding spaces looking for valid move.
-      if (SwapIfValid(rnd, -size, size)) {
+      if (SwapIfValid(rnd, -size.x, -1)) {
         count++;
-      } else if (SwapIfValid(rnd, +size, size)) {
+      } else if (SwapIfValid(rnd, +size.x, -1)) {
         count++;
       } else if (SwapIfValid(rnd, -1, 0)) {
         count++;
-      } else if (SwapIfValid(rnd, +1, size - 1)) {
+      } else if (SwapIfValid(rnd, +1, size.x - 1)) {
         count++;
       }
     }
   }
 }
-
