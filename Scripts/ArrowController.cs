@@ -8,6 +8,7 @@ public class ArrowController : MonoBehaviour
     private const string RuntimeFontName = "LegacyRuntime.ttf";
 
     private RectTransform _rectTransform;
+    private RectTransform _labelRect;
     private Button _button;
     private Text _label;
     private Coroutine _pulseRoutine;
@@ -62,14 +63,13 @@ public class ArrowController : MonoBehaviour
         GameObject textRoot = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
         textRoot.transform.SetParent(transform, false);
 
-        RectTransform textRect = textRoot.GetComponent<RectTransform>();
-        textRect.anchorMin = Vector2.zero;
-        textRect.anchorMax = Vector2.one;
-        textRect.offsetMin = Vector2.zero;
-        textRect.offsetMax = Vector2.zero;
+        _labelRect = textRoot.GetComponent<RectTransform>();
+        _labelRect.anchorMin = Vector2.zero;
+        _labelRect.anchorMax = Vector2.one;
+        _labelRect.offsetMin = Vector2.zero;
+        _labelRect.offsetMax = Vector2.zero;
 
         _label = textRoot.GetComponent<Text>();
-        _label.text = label;
         _label.font = Resources.GetBuiltinResource<Font>(RuntimeFontName);
         _label.fontStyle = FontStyle.Bold;
         _label.alignment = TextAnchor.MiddleCenter;
@@ -78,6 +78,7 @@ public class ArrowController : MonoBehaviour
 
         _pressedAction = value => callback(value);
         _button.onClick.AddListener(HandlePressed);
+        RefreshLabel();
         SetVisible(false);
     }
 
@@ -86,6 +87,35 @@ public class ArrowController : MonoBehaviour
         _baseSize = buttonSize;
         _rectTransform.anchoredPosition = anchoredPosition;
         _rectTransform.sizeDelta = new Vector2(buttonSize, buttonSize);
+    }
+
+    public void RefreshLabel()
+    {
+        if (_label == null || _labelRect == null)
+        {
+            return;
+        }
+
+        if (Direction == Vector2Int.left)
+        {
+            _label.text = "▶";
+            _labelRect.anchoredPosition = new Vector2(-1f, 0f);
+        }
+        else if (Direction == Vector2Int.right)
+        {
+            _label.text = "◀";
+            _labelRect.anchoredPosition = new Vector2(-1f, 0f);
+        }
+        else if (Direction == Vector2Int.up)
+        {
+            _label.text = "▼";
+            _labelRect.anchoredPosition = Vector2.zero;
+        }
+        else
+        {
+            _label.text = "▲";
+            _labelRect.anchoredPosition = Vector2.zero;
+        }
     }
 
     public void SetVisible(bool isVisible)

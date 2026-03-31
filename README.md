@@ -22,6 +22,7 @@ This module is set up as a dynamic image-based sliding puzzle that builds its bo
 - Uses Unity's current built-in runtime font `LegacyRuntime.ttf` for generated UI text
 - Arrow controls stay visible after each move and update in-place inside the current empty tile
 - UV mapping keeps the source image upright on the Y axis
+- Empty-slot arrows are arranged as a centered cross inside the empty tile, matching the reference interaction pattern
 
 ## Runtime Scripts
 

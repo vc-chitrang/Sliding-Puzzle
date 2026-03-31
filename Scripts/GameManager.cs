@@ -193,6 +193,7 @@ public class GameManager : MonoBehaviour
     private void CreateArrow(Vector2Int direction, string label)
     {
         ArrowController arrow = ArrowController.Create(_uiManager.ArrowLayer, direction, label, TryMoveFromArrow);
+        arrow.RefreshLabel();
         _arrows[direction] = arrow;
     }
 
@@ -565,9 +566,9 @@ public class GameManager : MonoBehaviour
         _emptySlotOverlay.position = screenCenter;
         _emptySlotOverlay.sizeDelta = new Vector2(screenHalfWidth * 2f, screenHalfHeight * 2f);
 
-        float buttonSize = Mathf.Clamp(Mathf.Min(_emptySlotOverlay.sizeDelta.x, _emptySlotOverlay.sizeDelta.y) * 0.34f, 26f, 64f);
-        float horizontalOffset = (_emptySlotOverlay.sizeDelta.x * 0.5f) - (buttonSize * 0.62f);
-        float verticalOffset = (_emptySlotOverlay.sizeDelta.y * 0.5f) - (buttonSize * 0.62f);
+        float slotSize = Mathf.Min(_emptySlotOverlay.sizeDelta.x, _emptySlotOverlay.sizeDelta.y);
+        float buttonSize = Mathf.Clamp(slotSize * 0.18f, 24f, 44f);
+        float crossOffset = Mathf.Clamp(slotSize * 0.28f, 18f, 34f);
 
         for (int i = 0; i < Directions.Length; i++)
         {
@@ -580,14 +581,15 @@ public class GameManager : MonoBehaviour
             if (isValid)
             {
                 arrow.transform.SetParent(_emptySlotOverlay, false);
-                arrow.SetLayout(GetArrowAnchoredPosition(direction, horizontalOffset, verticalOffset), buttonSize);
+                arrow.RefreshLabel();
+                arrow.SetLayout(GetArrowAnchoredPosition(direction, crossOffset), buttonSize);
             }
         }
     }
 
-    private Vector2 GetArrowAnchoredPosition(Vector2Int direction, float horizontalOffset, float verticalOffset)
+    private Vector2 GetArrowAnchoredPosition(Vector2Int direction, float crossOffset)
     {
-        return new Vector2(direction.x * horizontalOffset, direction.y * verticalOffset);
+        return new Vector2(direction.x * crossOffset, direction.y * crossOffset);
     }
 
     private bool CheckSolved()
