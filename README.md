@@ -17,9 +17,9 @@ This module is set up as a dynamic image-based sliding puzzle that builds its bo
 - Runtime shuffle using only valid moves to keep boards solvable
 - Timer that starts on the first player move
 - Best-time tracking per image and grid size with `PlayerPrefs`
-- Runtime UI with title, timer, best score, reset, preview, and random-image switching
+- Scene-authored UI with TMP labels for title, timer, best score, reset, preview, and random-image switching
 - Full-image preview overlay that temporarily pauses interaction and keeps the source image aspect ratio
-- Uses Unity's current built-in runtime font `LegacyRuntime.ttf` for generated UI text
+- Uses TextMeshProUGUI for all authored puzzle UI text
 - Arrow controls stay visible after each move and update in-place inside the current empty tile
 - UV mapping keeps the source image upright on the Y axis
 - Empty-slot arrows are arranged as a centered cross inside the empty tile, matching the reference interaction pattern
@@ -36,12 +36,19 @@ This module is set up as a dynamic image-based sliding puzzle that builds its bo
 - `Scripts/ArrowController.cs`
   - Renders the directional arrow buttons and click handlers
 - `Scripts/UIManager.cs`
-  - Builds the full puzzle HUD and preview overlay at runtime
+  - Binds the full puzzle HUD and preview overlay from serialized scene references on `PuzzleCanvas`
 
 ## Scene Expectations
 
 - `GameManager` stays on the `GameManager` scene object
 - `GameBoard` remains the parent for spawned tiles
+- `PuzzleCanvas` exists in `SampleScene` as an authored scene canvas root
+- `PuzzleCanvas` contains:
+  - `Header`
+  - `Footer`
+  - `ArrowLayer/EmptySlotOverlay`
+  - `PreviewPanel/PreviewImage`
+- Authored labels under `PuzzleCanvas` use `TextMeshProUGUI`, not legacy `UnityEngine.UI.Text`
 - `GamePiece` continues to provide:
   - a quad mesh
   - `MeshRenderer`

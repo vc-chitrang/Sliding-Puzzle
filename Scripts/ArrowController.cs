@@ -2,15 +2,16 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 
 public class ArrowController : MonoBehaviour
 {
-    private const string RuntimeFontName = "LegacyRuntime.ttf";
+    private const string DefaultFontAssetResourcePath = "Fonts & Materials/LiberationSans SDF";
 
     private RectTransform _rectTransform;
     private RectTransform _labelRect;
     private Button _button;
-    private Text _label;
+    [SerializeField] private TextMeshProUGUI _directionLabelText;
     private Coroutine _pulseRoutine;
     private Action<Vector2Int> _pressedAction;
     private float _baseSize = 56f;
@@ -60,7 +61,7 @@ public class ArrowController : MonoBehaviour
         colors.disabledColor = new Color(0.15f, 0.72f, 0.25f, 0.28f);
         _button.colors = colors;
 
-        GameObject textRoot = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+        GameObject textRoot = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
         textRoot.transform.SetParent(transform, false);
 
         _labelRect = textRoot.GetComponent<RectTransform>();
@@ -69,12 +70,14 @@ public class ArrowController : MonoBehaviour
         _labelRect.offsetMin = Vector2.zero;
         _labelRect.offsetMax = Vector2.zero;
 
-        _label = textRoot.GetComponent<Text>();
-        _label.font = Resources.GetBuiltinResource<Font>(RuntimeFontName);
-        _label.fontStyle = FontStyle.Bold;
-        _label.alignment = TextAnchor.MiddleCenter;
-        _label.color = Color.white;
-        _label.resizeTextForBestFit = true;
+        _directionLabelText = textRoot.GetComponent<TextMeshProUGUI>();
+        _directionLabelText.font = Resources.Load<TMP_FontAsset>(DefaultFontAssetResourcePath);
+        _directionLabelText.fontStyle = FontStyles.Bold;
+        _directionLabelText.alignment = TextAlignmentOptions.Center;
+        _directionLabelText.color = Color.white;
+        _directionLabelText.enableAutoSizing = true;
+        _directionLabelText.fontSizeMin = 10f;
+        _directionLabelText.fontSizeMax = 42f;
 
         _pressedAction = value => callback(value);
         _button.onClick.AddListener(HandlePressed);
@@ -91,29 +94,29 @@ public class ArrowController : MonoBehaviour
 
     public void RefreshLabel()
     {
-        if (_label == null || _labelRect == null)
+        if (_directionLabelText == null || _labelRect == null)
         {
             return;
         }
 
         if (Direction == Vector2Int.left)
         {
-            _label.text = "▶";
+            _directionLabelText.text = "▶";
             _labelRect.anchoredPosition = new Vector2(-1f, 0f);
         }
         else if (Direction == Vector2Int.right)
         {
-            _label.text = "◀";
+            _directionLabelText.text = "◀";
             _labelRect.anchoredPosition = new Vector2(-1f, 0f);
         }
         else if (Direction == Vector2Int.up)
         {
-            _label.text = "▲";//▲
+            _directionLabelText.text = "▲";
             _labelRect.anchoredPosition = Vector2.zero;
         }
         else
         {
-            _label.text = "▼";
+            _directionLabelText.text = "▼";
             _labelRect.anchoredPosition = Vector2.zero;
         }
     }
