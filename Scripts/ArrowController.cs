@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
@@ -108,12 +108,12 @@ public class ArrowController : MonoBehaviour
         }
         else if (Direction == Vector2Int.up)
         {
-            _label.text = "▼";
+            _label.text = "▲";//▲
             _labelRect.anchoredPosition = Vector2.zero;
         }
         else
         {
-            _label.text = "▲";
+            _label.text = "▼";
             _labelRect.anchoredPosition = Vector2.zero;
         }
     }

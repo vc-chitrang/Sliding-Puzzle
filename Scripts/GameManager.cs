@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
@@ -184,8 +184,8 @@ public class GameManager : MonoBehaviour
     private void CreateArrowButtons()
     {
         _arrows.Clear();
-        CreateArrow(Vector2Int.up, "▲");
-        CreateArrow(Vector2Int.down, "▼");
+        CreateArrow(Vector2Int.down, "▲");
+        CreateArrow(Vector2Int.up, "▼");
         CreateArrow(Vector2Int.left, "◀");
         CreateArrow(Vector2Int.right, "▶");
     }
@@ -589,7 +589,7 @@ public class GameManager : MonoBehaviour
 
     private Vector2 GetArrowAnchoredPosition(Vector2Int direction, float crossOffset)
     {
-        return new Vector2(direction.x * crossOffset, direction.y * crossOffset);
+        return new Vector2(direction.x * crossOffset, -1 * (direction.y * crossOffset));
     }
 
     private bool CheckSolved()
