@@ -18,10 +18,6 @@ public class UIManager : MonoBehaviour
     [SerializeField] private Button _newImageButton;
     [SerializeField] private Button _closePreviewButton;
     [SerializeField] private AspectRatioFitter _previewImageAspectRatioFitter;
-    [SerializeField] private RectTransform _arrowLayerRectTransform;
-    [SerializeField] private RectTransform _emptySlotOverlayRectTransform;
-
-    public RectTransform ArrowLayer => _arrowLayerRectTransform;
     public bool IsPreviewVisible => _previewPanelObject != null && _previewPanelObject.activeSelf;
 
     public void Initialize(GameManager gameManager)
@@ -99,16 +95,6 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    public RectTransform GetOrCreateEmptySlotOverlay()
-    {
-        if (_emptySlotOverlayRectTransform == null)
-        {
-            Debug.LogError("UIManager: EmptySlotOverlay is missing under PuzzleCanvas/ArrowLayer.");
-        }
-
-        return _emptySlotOverlayRectTransform;
-    }
-
     private void ValidateReferences()
     {
         if (_titleLabelText == null) Debug.LogError("UIManager: Header/Title is missing.");
@@ -119,8 +105,6 @@ public class UIManager : MonoBehaviour
         if (_previewToggleButton == null) Debug.LogError("UIManager: Footer/PreviewButton is missing.");
         if (_previewButtonLabelText == null) Debug.LogError("UIManager: Footer/PreviewButton/Label is missing.");
         if (_newImageButton == null) Debug.LogError("UIManager: Footer/NewImageButton is missing.");
-        if (_arrowLayerRectTransform == null) Debug.LogError("UIManager: ArrowLayer is missing.");
-        if (_emptySlotOverlayRectTransform == null) Debug.LogError("UIManager: ArrowLayer/EmptySlotOverlay is missing.");
         if (_previewPanelObject == null) Debug.LogError("UIManager: PreviewPanel is missing.");
         if (_previewImage == null) Debug.LogError("UIManager: PreviewPanel/PreviewImage is missing.");
         if (_previewImageAspectRatioFitter == null) Debug.LogError("UIManager: PreviewPanel/PreviewImage AspectRatioFitter is missing.");

@@ -1,47 +1,81 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.UI;
 
-[RequireComponent(typeof(MeshFilter))]
-[RequireComponent(typeof(MeshRenderer))]
-[RequireComponent(typeof(BoxCollider2D))]
+/// <summary>
+/// UI-based puzzle tile.  Uses <see cref="UnityEngine.UI.Image"/> + Sprite
+/// slicing instead of MeshRenderer + UV manipulation.
+///
+/// Movement uses <see cref="RectTransform.anchoredPosition"/>.
+/// Tile click detection uses <see cref="Button"/> OnClick.
+///
+/// Shuffle / win-detection / swap logic in GameManager is untouched.
+/// </summary>
+[RequireComponent(typeof(Image))]
+[RequireComponent(typeof(Button))]
 public class TileController : MonoBehaviour
 {
-    private MeshFilter _meshFilter;
-    private MeshRenderer _meshRenderer;
-    private BoxCollider2D _collider;
+    // ── Cached references ────────────────────────────────────────────
+    private RectTransform _rectTransform;
+    private Image _tileImage;
+    private Button _button;
     private Coroutine _moveRoutine;
 
+    // ── Tile data ────────────────────────────────────────────────────
+    public int Index { get; private set; }
     public Vector2Int CorrectCell { get; private set; }
     public Vector2Int CurrentCell { get; private set; }
     public bool IsInCorrectPosition => CurrentCell == CorrectCell;
 
+    /// <summary>
+    /// Raised when the tile is clicked/tapped.  GameManager subscribes.
+    /// </summary>
+    public event System.Action<TileController> OnTileClicked;
+
+    // ─────────────────────────────────────────────────────────────────
+    // Initialization
+    // ─────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Set up a UI tile with its sprite slice and grid position.
+    /// Called by GameManager during board spawn.
+    /// </summary>
     public void Initialize(
         int tileIndex,
         Vector2Int correctCell,
         Vector2Int currentCell,
-        Vector3 localPosition,
-        Vector3 localScale,
-        Vector2[] uvCoordinates,
-        Material sharedMaterial)
+        Sprite tileSprite)
     {
         CacheComponents();
+
+        Index = tileIndex;
         CorrectCell = correctCell;
         CurrentCell = currentCell;
         name = $"Tile_{tileIndex:00}";
 
-        transform.localPosition = localPosition;
-        transform.localScale = localScale;
-        _meshRenderer.sharedMaterial = sharedMaterial;
-        _collider.size = Vector2.one;
-        SetUvCoordinates(uvCoordinates);
+        // Assign the sprite slice for this tile
+        _tileImage.sprite = tileSprite;
+        _tileImage.preserveAspect = false;
+        _tileImage.type = Image.Type.Simple;
+
+        // Wire click
+        _button.onClick.RemoveAllListeners();
+        _button.onClick.AddListener(() => OnTileClicked?.Invoke(this));
     }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Public API (called by GameManager — same interface as before)
+    // ─────────────────────────────────────────────────────────────────
 
     public void SetCurrentCell(Vector2Int cell)
     {
         CurrentCell = cell;
     }
 
-    public void SnapTo(Vector3 localPosition)
+    /// <summary>
+    /// Instantly move tile to a target anchored position.
+    /// </summary>
+    public void SnapTo(Vector2 anchoredPosition)
     {
         if (_moveRoutine != null)
         {
@@ -49,24 +83,33 @@ public class TileController : MonoBehaviour
             _moveRoutine = null;
         }
 
-        transform.localPosition = localPosition;
+        CacheComponents();
+        _rectTransform.anchoredPosition = anchoredPosition;
     }
 
-    public IEnumerator AnimateTo(Vector3 targetLocalPosition, float duration)
+    /// <summary>
+    /// Smoothly animate tile to a target anchored position.
+    /// </summary>
+    public IEnumerator AnimateTo(Vector2 targetPosition, float duration)
     {
         if (_moveRoutine != null)
         {
             StopCoroutine(_moveRoutine);
         }
 
-        _moveRoutine = StartCoroutine(AnimateRoutine(targetLocalPosition, duration));
+        _moveRoutine = StartCoroutine(AnimateRoutine(targetPosition, duration));
         yield return _moveRoutine;
         _moveRoutine = null;
     }
 
-    private IEnumerator AnimateRoutine(Vector3 targetLocalPosition, float duration)
+    // ─────────────────────────────────────────────────────────────────
+    // Private helpers
+    // ─────────────────────────────────────────────────────────────────
+
+    private IEnumerator AnimateRoutine(Vector2 targetPosition, float duration)
     {
-        Vector3 start = transform.localPosition;
+        CacheComponents();
+        Vector2 start = _rectTransform.anchoredPosition;
         float elapsed = 0f;
 
         while (elapsed < duration)
@@ -74,45 +117,20 @@ public class TileController : MonoBehaviour
             elapsed += Time.deltaTime;
             float progress = Mathf.Clamp01(elapsed / duration);
             float eased = Mathf.SmoothStep(0f, 1f, progress);
-            transform.localPosition = Vector3.LerpUnclamped(start, targetLocalPosition, eased);
+            _rectTransform.anchoredPosition = Vector2.LerpUnclamped(start, targetPosition, eased);
             yield return null;
         }
 
-        transform.localPosition = targetLocalPosition;
-    }
-
-    private void SetUvCoordinates(Vector2[] uvCoordinates)
-    {
-        Mesh sourceMesh = _meshFilter.sharedMesh;
-        Mesh meshCopy = Instantiate(sourceMesh);
-        meshCopy.name = $"{name}_Mesh";
-        meshCopy.uv = uvCoordinates;
-        _meshFilter.mesh = meshCopy;
+        _rectTransform.anchoredPosition = targetPosition;
     }
 
     private void CacheComponents()
     {
-        if (_meshFilter == null)
-        {
-            _meshFilter = GetComponent<MeshFilter>();
-        }
-
-        if (_meshRenderer == null)
-        {
-            _meshRenderer = GetComponent<MeshRenderer>();
-        }
-
-        if (_collider == null)
-        {
-            _collider = GetComponent<BoxCollider2D>();
-        }
-    }
-
-    private void OnDestroy()
-    {
-        if (_meshFilter != null && _meshFilter.mesh != null)
-        {
-            Destroy(_meshFilter.mesh);
-        }
+        if (_rectTransform == null)
+            _rectTransform = GetComponent<RectTransform>();
+        if (_tileImage == null)
+            _tileImage = GetComponent<Image>();
+        if (_button == null)
+            _button = GetComponent<Button>();
     }
 }
