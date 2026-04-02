@@ -16,11 +16,17 @@ public class GameManager : MonoBehaviour
     [SerializeField] private int shuffleMoveMultiplier = 3;
     [SerializeField] private string imagesFolderRelativeToAssets = "Games/Sliding-Puzzle/Textures";
 
+    [Header("Board Size Override")]
+    [Tooltip("When true, board is always 3x3 regardless of image aspect ratio.")]
+    [SerializeField] private bool isBoardSizePredefined = true;
+    [Tooltip("Grid size used when isBoardSizePredefined is true.")]
+    [SerializeField] private Vector2Int predefinedBoardSize = new Vector2Int(3, 3);
+
     private readonly Dictionary<Vector2Int, TileController> _tilesByCell = new Dictionary<Vector2Int, TileController>();
     private readonly List<TileController> _spawnedTiles = new List<TileController>();
     private readonly List<Texture2D> _availableTextures = new List<Texture2D>();
     private readonly Dictionary<Vector2Int, ArrowController> _arrows = new Dictionary<Vector2Int, ArrowController>();
-
+    
     private Vector2Int _size;
     private Vector2Int _emptyCell;
     private Texture2D _currentTexture;
@@ -71,9 +77,21 @@ public class GameManager : MonoBehaviour
         CreateArrowButtons();
     }
 
+    [Header("Startup")]
+    [Tooltip("When true, puzzle auto-starts from Textures folder on scene load. " +
+             "Set false when using CropImageScreen flow (puzzle starts after crop).")]
+    [SerializeField] private bool autoStartOnLoad = false;
+
     private void Start()
     {
         LoadAvailableTextures();
+
+        if (!autoStartOnLoad)
+        {
+            // Puzzle will be started externally via StartPuzzleWithCroppedSprite()
+            return;
+        }
+
         Texture2D initialTexture = SelectInitialTexture();
         if (initialTexture == null)
         {
@@ -107,6 +125,26 @@ public class GameManager : MonoBehaviour
         {
             TryMoveTileFromScreenPosition(Input.mousePosition);
         }
+    }
+
+    /// <summary>
+    /// Called externally (e.g. by ImageCropper) to start a new puzzle
+    /// using a cropped sprite's texture. Does not modify the original sprite.
+    /// </summary>
+    public void StartPuzzleWithCroppedSprite(Sprite croppedSprite)
+    {
+        if (croppedSprite == null || croppedSprite.texture == null)
+        {
+            Debug.LogError("GameManager: Cannot start puzzle — cropped sprite is null.");
+            return;
+        }
+
+        Texture2D croppedTexture = croppedSprite.texture;
+        croppedTexture.name = "CroppedImage";
+        croppedTexture.wrapMode = TextureWrapMode.Clamp;
+        croppedTexture.filterMode = FilterMode.Bilinear;
+
+        BuildPuzzle(croppedTexture, true);
     }
 
     public void ResetPuzzle()
@@ -288,6 +326,13 @@ public class GameManager : MonoBehaviour
 
     private Vector2Int DetermineGridSize(int width, int height)
     {
+        // When predefined, force the configured board size (default 3x3)
+        if (isBoardSizePredefined)
+        {
+            return predefinedBoardSize;
+        }
+
+        // Original dynamic logic based on image aspect ratio
         if (width > height)
         {
             return new Vector2Int(4, 3);

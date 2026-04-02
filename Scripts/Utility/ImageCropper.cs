@@ -27,6 +27,16 @@ public class ImageCropper : MonoBehaviour
     [Tooltip("Final output is always square. This controls the resolution (e.g. 1024 → 1024x1024).")]
     [SerializeField] private int outputSize = 1024;
 
+    [Header("Screen Flow")]
+    [Tooltip("The crop screen root — hidden after cropping.")]
+    [SerializeField] private GameObject cropImageScreen;
+
+    [Tooltip("The gameplay screen root — shown after cropping.")]
+    [SerializeField] private GameObject gamePlayScreen;
+
+    [Tooltip("GameManager that receives the cropped sprite to build the puzzle.")]
+    [SerializeField] private GameManager gameManager;
+
     [Header("Debug")]
     [SerializeField] private bool enableDebugLogs;
 
@@ -191,6 +201,22 @@ public class ImageCropper : MonoBehaviour
         {
             outputImage.sprite = CroppedSprite;
             outputImage.preserveAspect = true;
+        }
+
+        // ── STEP 8: Screen flow — switch to gameplay ─────────────────────
+        if (gameManager != null)
+        {
+            // Hide crop screen, show gameplay screen
+            if (cropImageScreen != null) cropImageScreen.SetActive(false);
+            if (gamePlayScreen != null) gamePlayScreen.SetActive(true);
+
+            // Pass cropped sprite to GameManager and start puzzle
+            gameManager.StartPuzzleWithCroppedSprite(CroppedSprite);
+
+            if (enableDebugLogs)
+            {
+                Debug.Log("[ImageCropper] Switched to GamePlayScreen and started puzzle.");
+            }
         }
     }
 
