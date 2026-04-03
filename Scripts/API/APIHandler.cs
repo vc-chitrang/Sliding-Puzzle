@@ -33,9 +33,6 @@ public class APIHandler:MonoBehaviour {
         PopupManager.Instance.HideLoading();
 
         if (response != null && response.results != null) {
-            string jsonData = JsonUtility.ToJson(response);
-            File.WriteAllText(Application.persistentDataPath + "/MapData.json", jsonData);
-            Debug.Log("Data fetched and saved to: " + Application.persistentDataPath + "/MapData.json");
             OnAPIDataFetchedEvent?.Invoke(response);
         } else {
             Debug.LogError("APIHandler: response or response.results is null.");

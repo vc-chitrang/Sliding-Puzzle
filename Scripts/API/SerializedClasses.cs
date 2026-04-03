@@ -101,5 +101,13 @@ public class Results {
 public class MAPData {
     public Results results;
     public Filters filters;
+
+    internal void CollectAllImagePaths(List<string> allDownloadUrl) {
+        results.data.ForEach(result => {
+            if (!string.IsNullOrEmpty(result.primary_image)) {
+                allDownloadUrl.Add(result.primary_image);
+            }
+        });
+    }
 }
 

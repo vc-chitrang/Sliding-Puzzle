@@ -1350,6 +1350,7 @@ GameObject:
   - component: {fileID: 1529312324}
   - component: {fileID: 1529312323}
   - component: {fileID: 1529312322}
+  - component: {fileID: 1529312325}
   m_Layer: 0
   m_Name: APIHandler
   m_TagString: Untagged
@@ -1412,6 +1413,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: API-Machanisam::ViitorCloud.API.ServerCommunication
   server: 0
+--- !u!114 &1529312325
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1529312320}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 99f43a50fc1e9734b8998a7e15cdb016, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DataHandler
+  FileNameWithoutExtension: MAP_Cumulus
+  mediaManager: {fileID: 1442631345}
 --- !u!1 &1549895283
 GameObject:
   m_ObjectHideFlags: 0
