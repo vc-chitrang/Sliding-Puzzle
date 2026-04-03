@@ -70,15 +70,17 @@ public class ImageCropper : MonoBehaviour
 
         // ── STEP 1: Get world-space corners of both rects ────────────────
         Vector3[] viewportCorners = new Vector3[4];
-        Vector3[] imageCorners = new Vector3[4];
         cropViewPort.rectTransform.GetWorldCorners(viewportCorners);
-        imageToCrop.rectTransform.GetWorldCorners(imageCorners);
 
         // World-space bounds (min/max)
         Vector2 vpMin = viewportCorners[0]; // bottom-left
         Vector2 vpMax = viewportCorners[2]; // top-right
-        Vector2 imgMin = imageCorners[0];
-        Vector2 imgMax = imageCorners[2];
+
+        // Use visible image bounds (preserveAspect-aware) instead of
+        // raw RectTransform corners — prevents incorrect crop coordinates
+        // when the rendered image is smaller than its RectTransform.
+        Vector2 imgMin, imgMax;
+        ComputeVisibleImageBounds(imageToCrop, out imgMin, out imgMax);
 
         if (enableDebugLogs)
         {
@@ -220,4 +222,51 @@ public class ImageCropper : MonoBehaviour
         }
     }
 
+    // ─────────────────────────────────────────────────────────────────
+    // Helpers
+    // ─────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Computes the world-space bounds of the actual rendered image,
+    /// accounting for <c>preserveAspect</c> on the Image component.
+    /// When preserveAspect is true, the rendered image can be smaller
+    /// than the RectTransform — this returns the true visible bounds.
+    /// </summary>
+    private static void ComputeVisibleImageBounds(Image img, out Vector2 visMin, out Vector2 visMax)
+    {
+        Vector3[] corners = new Vector3[4];
+        img.rectTransform.GetWorldCorners(corners);
+        Vector2 rtMin = corners[0];
+        Vector2 rtMax = corners[2];
+        float rtW = rtMax.x - rtMin.x;
+        float rtH = rtMax.y - rtMin.y;
+
+        if (img.sprite == null || !img.preserveAspect || rtW <= 0f || rtH <= 0f)
+        {
+            visMin = rtMin;
+            visMax = rtMax;
+            return;
+        }
+
+        float spriteAspect = img.sprite.rect.width / img.sprite.rect.height;
+        float rtAspect = rtW / rtH;
+        float visW, visH;
+
+        if (spriteAspect > rtAspect)
+        {
+            // Wider than container — width fills, height shrinks
+            visW = rtW;
+            visH = rtW / spriteAspect;
+        }
+        else
+        {
+            // Taller — height fills, width shrinks
+            visH = rtH;
+            visW = rtH * spriteAspect;
+        }
+
+        Vector2 center = (rtMin + rtMax) * 0.5f;
+        visMin = center - new Vector2(visW, visH) * 0.5f;
+        visMax = center + new Vector2(visW, visH) * 0.5f;
+    }
 }

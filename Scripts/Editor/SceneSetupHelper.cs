@@ -1,10 +1,11 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.UI;
 using UnityEditor;
 
 /// <summary>
-/// One-shot editor utility: creates BoardPanel and wires Phase 3 references.
-/// Run via Tools → Sliding Puzzle → Setup Phase 3 Scene.
+/// One-shot editor utility: creates BoardPanel, wires Phase 3 references,
+/// and sets up the crop grid resizer system.
+/// Run via Tools > Sliding Puzzle > Setup Phase 3 Scene.
 /// </summary>
 public static class SceneSetupHelper
 {
@@ -65,25 +66,96 @@ public static class SceneSetupHelper
             Debug.LogError("[SceneSetup] GameManager not found.");
         }
 
-        // ── Wire ImageZoomController.pinchableScrollRect ────────────────
-        var zcs = Resources.FindObjectsOfTypeAll<ImageZoomController>();
-        var psrs = Resources.FindObjectsOfTypeAll<PinchableScrollRect>();
-        if (zcs.Length > 0 && psrs.Length > 0)
-        {
-            var so2 = new SerializedObject(zcs[0]);
-            var psr = so2.FindProperty("pinchableScrollRect");
-            if (psr != null)
-            {
-                psr.objectReferenceValue = psrs[0];
-                so2.ApplyModifiedProperties();
-                Debug.Log("[SceneSetup] Wired ImageZoomController.pinchableScrollRect → " + psrs[0].gameObject.name);
-            }
-        }
+        // ── Wire CropGridResizer system ─────────────────────────────────
+        SetupCropGridResizer();
 
         // ── Mark dirty ──────────────────────────────────────────────────
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(
             UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene());
         Debug.Log("[SceneSetup] Done! Save the scene.");
+    }
+
+    /// <summary>
+    /// Finds CropImageScreen, adds CropGridResizer, and wires all references
+    /// for the crop grid system (ImageCropper.cropViewPort, ImageZoomController, etc.).
+    /// </summary>
+    private static void SetupCropGridResizer()
+    {
+        // Find CropImageScreen
+        GameObject cropScreen = null;
+        foreach (GameObject root in UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects())
+        {
+            cropScreen = FindDeep(root.transform, "CropImageScreen");
+            if (cropScreen != null) break;
+        }
+
+        if (cropScreen == null)
+        {
+            Debug.LogWarning("[SceneSetup] CropImageScreen not found. Skipping crop grid setup.");
+            return;
+        }
+
+        // Find CropAreaReferenceGrid and ImageToCrop
+        GameObject gridGO = FindDeep(cropScreen.transform, "CropAreaReferenceGrid");
+        GameObject imageGO = FindDeep(cropScreen.transform, "ImageToCrop");
+
+        if (gridGO == null || imageGO == null)
+        {
+            Debug.LogWarning("[SceneSetup] CropAreaReferenceGrid or ImageToCrop not found.");
+            return;
+        }
+
+        RectTransform gridRT = gridGO.GetComponent<RectTransform>();
+        RectTransform imageRT = imageGO.GetComponent<RectTransform>();
+        Image imageImg = imageGO.GetComponent<Image>();
+        Image gridImg = gridGO.GetComponent<Image>();
+
+        // ── Add/Get CropGridResizer on CropImageScreen ──────────────────
+        CropGridResizer resizer = cropScreen.GetComponent<CropGridResizer>();
+        if (resizer == null)
+            resizer = Undo.AddComponent<CropGridResizer>(cropScreen);
+
+        {
+            var so = new SerializedObject(resizer);
+            SetRef(so, "gridRect", gridRT);
+            SetRef(so, "imageRect", imageRT);
+            SetRef(so, "imageToCropImage", imageImg);
+            so.ApplyModifiedProperties();
+            Debug.Log("[SceneSetup] Wired CropGridResizer references.");
+        }
+
+        // ── Wire ImageCropper.cropViewPort → CropAreaReferenceGrid Image ─
+        ImageCropper cropper = cropScreen.GetComponent<ImageCropper>();
+        if (cropper != null && gridImg != null)
+        {
+            var so = new SerializedObject(cropper);
+            SetRef(so, "cropViewPort", gridImg);
+            so.ApplyModifiedProperties();
+            Debug.Log("[SceneSetup] Wired ImageCropper.cropViewPort → CropAreaReferenceGrid.");
+        }
+
+        // ── Wire ImageZoomController.cropGridResizer ────────────────────
+        ImageZoomController zoomCtrl = cropScreen.GetComponent<ImageZoomController>();
+        if (zoomCtrl != null)
+        {
+            var so = new SerializedObject(zoomCtrl);
+            SetRef(so, "cropGridResizer", resizer);
+            so.ApplyModifiedProperties();
+            Debug.Log("[SceneSetup] Wired ImageZoomController.cropGridResizer.");
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Utility
+    // ─────────────────────────────────────────────────────────────────
+
+    private static void SetRef(SerializedObject so, string propName, Object value)
+    {
+        var prop = so.FindProperty(propName);
+        if (prop != null)
+            prop.objectReferenceValue = value;
+        else
+            Debug.LogWarning($"[SceneSetup] Property '{propName}' not found on {so.targetObject.GetType().Name}.");
     }
 
     private static GameObject FindDeep(Transform root, string targetName)

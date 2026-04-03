@@ -2,25 +2,28 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Two-way zoom sync between a UI Slider and <see cref="PinchableScrollRect"/>.
+/// Two-way sync between a UI Slider and <see cref="CropGridResizer"/>.
 ///
-///   Slider → PinchableScrollRect  (user drags slider)
-///   PinchableScrollRect → Slider  (user pinches / scrolls)
+///   Slider → CropGridResizer  (user drags slider)
+///   CropGridResizer → Slider  (user drags corner handles)
 ///
-/// Uses <c>_isUpdatingFromCode</c> flag to prevent infinite loops.
-/// Reset button is only interactable when slider > 0.
+/// Slider semantics:
+///   0 = minimum crop size (20% of initial)
+///   1 = maximum crop size (initial / default)
+///
+/// Reset button is only interactable when size &lt; max (slider &lt; 1).
 /// </summary>
 public class ImageZoomController : MonoBehaviour
 {
     [Header("References")]
-    [Tooltip("Slider controlling zoom. Range 0 (min zoom) to 1 (max zoom).")]
+    [Tooltip("Slider controlling crop grid size. Range 0 (min) to 1 (max/default).")]
     [SerializeField] private Slider zoomSlider;
 
-    [Tooltip("Button that resets zoom to default.")]
+    [Tooltip("Button that resets crop grid to default (max) size.")]
     [SerializeField] private Button resetButton;
 
-    [Tooltip("The PinchableScrollRect that handles pinch/scroll zoom.")]
-    [SerializeField] private PinchableScrollRect pinchableScrollRect;
+    [Tooltip("The CropGridResizer that manages the crop grid.")]
+    [SerializeField] private CropGridResizer cropGridResizer;
 
     // ── Loop guard ───────────────────────────────────────────────────
     private bool _isUpdatingFromCode;
@@ -31,47 +34,37 @@ public class ImageZoomController : MonoBehaviour
 
     private void OnEnable()
     {
-        // Subscribe to PinchableScrollRect zoom changes (pinch / scroll)
-        if (pinchableScrollRect != null)
-        {
-            pinchableScrollRect.OnZoomChanged += OnPinchableZoomChanged;
-        }
+        // Subscribe to grid size changes from drag handles
+        if (cropGridResizer != null)
+            cropGridResizer.OnNormalizedSizeChanged += OnGridSizeChanged;
 
         // Subscribe to slider changes (user drags slider)
         if (zoomSlider != null)
         {
             zoomSlider.onValueChanged.AddListener(OnSliderChanged);
-            zoomSlider.value = 0f;
+            zoomSlider.value = 1f; // Start at max (full size)
         }
 
         if (resetButton != null)
-        {
-            resetButton.onClick.AddListener(ResetZoom);
-        }
+            resetButton.onClick.AddListener(ResetSize);
 
         SyncResetButton();
     }
 
     private void OnDisable()
     {
-        if (pinchableScrollRect != null)
-        {
-            pinchableScrollRect.OnZoomChanged -= OnPinchableZoomChanged;
-        }
+        if (cropGridResizer != null)
+            cropGridResizer.OnNormalizedSizeChanged -= OnGridSizeChanged;
 
         if (zoomSlider != null)
-        {
             zoomSlider.onValueChanged.RemoveListener(OnSliderChanged);
-        }
 
         if (resetButton != null)
-        {
-            resetButton.onClick.RemoveListener(ResetZoom);
-        }
+            resetButton.onClick.RemoveListener(ResetSize);
     }
 
     // ─────────────────────────────────────────────────────────────────
-    // Slider → Zoom (user drags slider)
+    // Slider → Grid (user drags slider)
     // ─────────────────────────────────────────────────────────────────
 
     private void OnSliderChanged(float value)
@@ -80,29 +73,25 @@ public class ImageZoomController : MonoBehaviour
 
         _isUpdatingFromCode = true;
 
-        if (pinchableScrollRect != null)
-        {
-            pinchableScrollRect.SetNormalizedZoom(value);
-        }
+        if (cropGridResizer != null)
+            cropGridResizer.SetNormalizedSize(value);
 
         _isUpdatingFromCode = false;
         SyncResetButton();
     }
 
     // ─────────────────────────────────────────────────────────────────
-    // Zoom → Slider (user pinches or scrolls)
+    // Grid → Slider (user drags corner handles)
     // ─────────────────────────────────────────────────────────────────
 
-    private void OnPinchableZoomChanged(float normalizedZoom)
+    private void OnGridSizeChanged(float normalizedSize)
     {
         if (_isUpdatingFromCode) return;
 
         _isUpdatingFromCode = true;
 
         if (zoomSlider != null)
-        {
-            zoomSlider.value = normalizedZoom;
-        }
+            zoomSlider.value = normalizedSize;
 
         _isUpdatingFromCode = false;
         SyncResetButton();
@@ -113,19 +102,19 @@ public class ImageZoomController : MonoBehaviour
     // ─────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Resets zoom to minimum and slider to 0.
+    /// Resets the crop grid to its initial (maximum) size.
     /// </summary>
-    public void ResetZoom()
+    public void ResetSize()
     {
-        if (zoomSlider != null)
-        {
-            zoomSlider.value = 0f; // triggers OnSliderChanged → SetNormalizedZoom
-        }
-        else if (pinchableScrollRect != null)
-        {
-            pinchableScrollRect.SetNormalizedZoom(0f);
-        }
+        _isUpdatingFromCode = true;
 
+        if (zoomSlider != null)
+            zoomSlider.value = 1f;
+
+        if (cropGridResizer != null)
+            cropGridResizer.ResetToInitialSize();
+
+        _isUpdatingFromCode = false;
         SyncResetButton();
     }
 
@@ -136,8 +125,6 @@ public class ImageZoomController : MonoBehaviour
     private void SyncResetButton()
     {
         if (resetButton != null)
-        {
-            resetButton.interactable = zoomSlider != null && zoomSlider.value > 0f;
-        }
+            resetButton.interactable = zoomSlider != null && zoomSlider.value < 0.99f;
     }
 }
