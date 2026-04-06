@@ -132,6 +132,8 @@ public class CollectionUIManager : MonoBehaviour
         {
             perPageDropdown.ClearOptions();
             perPageDropdown.AddOptions(new List<string> { "20", "40", "80" });
+            perPageDropdown.SetValueWithoutNotify(0);  // always start at "20"
+            perPageDropdown.RefreshShownValue();
             perPageDropdown.onValueChanged.AddListener(OnPerPageChanged);
             ConfigureDropdownTemplate(perPageDropdown, 140f); // 3 items × ~44px ≈ 132px
         }
@@ -147,6 +149,8 @@ public class CollectionUIManager : MonoBehaviour
                 "Date Ascending", "Date Descending",
                 "Artist A-Z", "Artist Z-A"
             });
+            sortByDropdown.SetValueWithoutNotify(0);  // always start at "Default"
+            sortByDropdown.RefreshShownValue();
             sortByDropdown.onValueChanged.AddListener(OnSortChanged);
             ConfigureDropdownTemplate(sortByDropdown, 300f); // 7 items × ~44px ≈ 308px
         }
