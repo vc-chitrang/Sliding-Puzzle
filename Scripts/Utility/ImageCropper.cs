@@ -37,6 +37,9 @@ public class ImageCropper : MonoBehaviour
     [Tooltip("GameManager that receives the cropped sprite to build the puzzle.")]
     [SerializeField] private GameManager gameManager;
 
+    [Tooltip("Controls post-crop UI state (hides edit controls, shows START button).")]
+    [SerializeField] private CropScreenController cropScreenController;
+
     [Header("Debug")]
     [SerializeField] private bool enableDebugLogs;
 
@@ -205,20 +208,25 @@ public class ImageCropper : MonoBehaviour
             outputImage.preserveAspect = true;
         }
 
-        // ── STEP 8: Screen flow — switch to gameplay ─────────────────────
-        if (gameManager != null)
+        // ── STEP 8: Post-crop state ───────────────────────────────────────
+        // If a CropScreenController is wired, hand off the sprite to it so it
+        // can show the START button and hide the edit controls.
+        // Fallback: original direct-switch behaviour (no controller assigned).
+        if (cropScreenController != null)
         {
-            // Hide crop screen, show gameplay screen
-            if (cropImageScreen != null) cropImageScreen.SetActive(false);
-            if (gamePlayScreen != null) gamePlayScreen.SetActive(true);
+            cropScreenController.OnCropComplete(CroppedSprite);
 
-            // Pass cropped sprite to GameManager and start puzzle
+            if (enableDebugLogs)
+                Debug.Log("[ImageCropper] Crop complete — notified CropScreenController.");
+        }
+        else if (gameManager != null)
+        {
+            if (cropImageScreen != null) cropImageScreen.SetActive(false);
+            if (gamePlayScreen  != null) gamePlayScreen.SetActive(true);
             gameManager.StartPuzzleWithCroppedSprite(CroppedSprite);
 
             if (enableDebugLogs)
-            {
                 Debug.Log("[ImageCropper] Switched to GamePlayScreen and started puzzle.");
-            }
         }
     }
 
