@@ -131,7 +131,7 @@ public class CollectionUIManager : MonoBehaviour
             perPageDropdown.ClearOptions();
             perPageDropdown.AddOptions(new List<string> { "20", "40", "80" });
             perPageDropdown.onValueChanged.AddListener(OnPerPageChanged);
-            ConfigureDropdownTemplate(perPageDropdown, 180f);
+            ConfigureDropdownTemplate(perPageDropdown, 140f); // 3 items × ~44px ≈ 132px
         }
 
         // Sort
@@ -146,7 +146,7 @@ public class CollectionUIManager : MonoBehaviour
                 "Artist A-Z", "Artist Z-A"
             });
             sortByDropdown.onValueChanged.AddListener(OnSortChanged);
-            ConfigureDropdownTemplate(sortByDropdown, 360f);
+            ConfigureDropdownTemplate(sortByDropdown, 300f); // 7 items × ~44px ≈ 308px
         }
 
         // Pagination
@@ -268,11 +268,10 @@ public class CollectionUIManager : MonoBehaviour
         if (data.results.pagination != null)
         {
             _totalResults = data.results.pagination.total;
-            _lastPage = data.results.pagination.last_page;
-            _currentPage = data.results.pagination.current_page;
+            _lastPage     = data.results.pagination.last_page;
+            _currentPage  = data.results.pagination.current_page;
         }
 
-        // Display
         EnsureCardPool();
         DisplayCards(data.results.data);
         UpdateResultCount(data.results.pagination);
@@ -381,56 +380,122 @@ public class CollectionUIManager : MonoBehaviour
         dd.AddOptions(options);
         dd.SetValueWithoutNotify(0);
         dd.RefreshShownValue();
-        ConfigureDropdownTemplate(dd);
+        // Auto-calculate popup max height: show up to 8 items (~52 px each) + padding
+        int visible = Mathf.Min(options.Count, 8);
+        float maxH = visible * 52f + 16f;
+        ConfigureDropdownTemplate(dd, maxH);
     }
 
     /// <summary>
-    /// Ensures the TMP_Dropdown popup template has a VerticalLayoutGroup and
-    /// ContentSizeFitter on its Content container so items stack and size correctly.
+    /// Configures a TMP_Dropdown template so that:
+    ///  • Content stacks items via VerticalLayoutGroup + ContentSizeFitter.
+    ///  • Each Item auto-heights based on its label text (word-wrap, same font size).
+    ///  • Item Background and Checkmark are excluded from layout (ignoreLayout) so
+    ///    they stay correctly anchored while the Item itself resizes.
     /// </summary>
     private static void ConfigureDropdownTemplate(TMP_Dropdown dd, float maxHeight = 320f)
     {
         if (dd == null || dd.template == null) return;
 
         RectTransform template = dd.template;
-
-        // Clamp the popup to a max height; the scrollbar handles overflow
         Vector2 sd = template.sizeDelta;
         template.sizeDelta = new Vector2(sd.x, maxHeight);
 
-        // Navigate Template → Viewport → Content
         Transform viewport = template.Find("Viewport");
         if (viewport == null) return;
-
         Transform content = viewport.Find("Content");
         if (content == null) return;
-
         GameObject contentGO = content.gameObject;
 
-        // ── VerticalLayoutGroup ───────────────────────────────────
+        // ── Content: VerticalLayoutGroup ────────────────────────────
         VerticalLayoutGroup vlg = contentGO.GetComponent<VerticalLayoutGroup>();
         if (vlg == null) vlg = contentGO.AddComponent<VerticalLayoutGroup>();
         vlg.childControlWidth      = true;
-        vlg.childControlHeight     = true;
+        vlg.childControlHeight     = false;  // Items self-size via their own ContentSizeFitter
         vlg.childForceExpandWidth  = true;
         vlg.childForceExpandHeight = false;
-        vlg.spacing = 2f;
-        vlg.padding = new RectOffset(4, 4, 4, 4);
+        vlg.spacing  = 2f;
+        vlg.padding  = new RectOffset(4, 4, 4, 4);
 
-        // ── ContentSizeFitter ─────────────────────────────────────
+        // ── Content: ContentSizeFitter ───────────────────────────────
         ContentSizeFitter csf = contentGO.GetComponent<ContentSizeFitter>();
         if (csf == null) csf = contentGO.AddComponent<ContentSizeFitter>();
         csf.verticalFit   = ContentSizeFitter.FitMode.PreferredSize;
         csf.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
 
-        // ── Item LayoutElement (the template item cloned per option) ──
+        // ── Item template (cloned once per option) ───────────────────
         Transform item = content.Find("Item");
-        if (item != null)
+        if (item == null) return;
+
+        // LayoutElement: only minHeight; height driven by ContentSizeFitter below
+        LayoutElement le = item.GetComponent<LayoutElement>();
+        if (le == null) le = item.gameObject.AddComponent<LayoutElement>();
+        le.minHeight       = 40f;
+        le.preferredHeight = -1f;   // unconstrained — let ContentSizeFitter decide
+
+        // ContentSizeFitter on Item so every clone auto-sizes to its label text
+        ContentSizeFitter itemCsf = item.GetComponent<ContentSizeFitter>();
+        if (itemCsf == null) itemCsf = item.gameObject.AddComponent<ContentSizeFitter>();
+        itemCsf.verticalFit   = ContentSizeFitter.FitMode.PreferredSize;
+        itemCsf.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+
+        // VerticalLayoutGroup on Item — drives preferred height from Item Label text
+        // (left padding reserves space for the Checkmark icon)
+        VerticalLayoutGroup itemVLG = item.GetComponent<VerticalLayoutGroup>();
+        if (itemVLG == null) itemVLG = item.gameObject.AddComponent<VerticalLayoutGroup>();
+        itemVLG.childControlWidth      = true;
+        itemVLG.childControlHeight     = true;
+        itemVLG.childForceExpandWidth  = true;
+        itemVLG.childForceExpandHeight = false;
+        itemVLG.padding = new RectOffset(36, 8, 8, 8); // 36 left keeps room for checkmark
+
+        // Item Background — stays full-fill via anchors, excluded from layout
+        Transform bg = item.Find("Item Background");
+        if (bg != null)
         {
-            LayoutElement le = item.GetComponent<LayoutElement>();
-            if (le == null) le = item.gameObject.AddComponent<LayoutElement>();
-            le.minHeight       = 40f;
-            le.preferredHeight = 40f;
+            LayoutElement bgLE = bg.GetComponent<LayoutElement>();
+            if (bgLE == null) bgLE = bg.gameObject.AddComponent<LayoutElement>();
+            bgLE.ignoreLayout = true;
+            RectTransform bgRT = bg.GetComponent<RectTransform>();
+            if (bgRT != null)
+            {
+                bgRT.anchorMin = Vector2.zero;
+                bgRT.anchorMax = Vector2.one;
+                bgRT.offsetMin = Vector2.zero;
+                bgRT.offsetMax = Vector2.zero;
+            }
+        }
+
+        // Item Checkmark — stays at its anchor position, excluded from layout
+        Transform checkmark = item.Find("Item Checkmark");
+        if (checkmark != null)
+        {
+            LayoutElement cmLE = checkmark.GetComponent<LayoutElement>();
+            if (cmLE == null) cmLE = checkmark.gameObject.AddComponent<LayoutElement>();
+            cmLE.ignoreLayout = true;
+        }
+
+        // Item Label — enable word wrap so long text flows to multiple lines
+        // Font size is NOT changed — consistency maintained across all dropdowns
+        Transform labelT = item.Find("Item Label");
+        if (labelT != null)
+        {
+            TextMeshProUGUI label = labelT.GetComponent<TextMeshProUGUI>();
+            if (label != null)
+            {
+                label.enableWordWrapping = true;
+                label.overflowMode       = TextOverflowModes.Overflow;
+            }
+            // Reset anchors so the Item's VerticalLayoutGroup can control the label
+            RectTransform labelRT = labelT.GetComponent<RectTransform>();
+            if (labelRT != null)
+            {
+                labelRT.anchorMin = new Vector2(0f, 1f);
+                labelRT.anchorMax = new Vector2(1f, 1f);
+                labelRT.pivot     = new Vector2(0.5f, 1f);
+                labelRT.offsetMin = Vector2.zero;
+                labelRT.offsetMax = Vector2.zero;
+            }
         }
     }
 

@@ -51,6 +51,10 @@ public class CardItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     private string _loadingUrl;
     private GameObject _spinnerInstance;
 
+    // Held so Clear() and OnDestroy() can Abort()+Dispose() it before a
+    // domain reload kills the coroutine — prevents "Release of invalid GC handle"
+    private UnityWebRequest _activeRequest;
+
     // Hover
     private static readonly Vector3 HoverScale = new Vector3(1.03f, 1.03f, 1f);
     private Shadow _shadow;
@@ -136,6 +140,9 @@ public class CardItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
             _loadCoroutine = null;
         }
 
+        // Abort any in-flight web request so its GC handle is released cleanly
+        AbortActiveRequest();
+
         _boundData = null;
         _onClickCallback = null;
         _loadingUrl = null;
@@ -172,6 +179,30 @@ public class CardItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
             _shadow.effectColor = new Color(0f, 0f, 0f, 0.15f);
             _shadow.effectDistance = new Vector2(4f, -4f);
             _shadow.enabled = false;
+        }
+    }
+
+    private void OnDestroy()
+    {
+        // Called during domain reload / scene unload — abort any live web request
+        // before Unity invalidates the GC handle, preventing the
+        // "Release of invalid GC handle. The handle is from a previous domain" error.
+        if (_loadCoroutine != null)
+        {
+            StopCoroutine(_loadCoroutine);
+            _loadCoroutine = null;
+        }
+        AbortActiveRequest();
+    }
+
+    /// <summary>Aborts and disposes the current web request if one is running.</summary>
+    private void AbortActiveRequest()
+    {
+        if (_activeRequest != null)
+        {
+            _activeRequest.Abort();
+            _activeRequest.Dispose();
+            _activeRequest = null;
         }
     }
 
@@ -212,20 +243,25 @@ public class CardItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
 
     private IEnumerator LoadImageCoroutine(string url)
     {
-        using (UnityWebRequest request = UnityWebRequestTexture.GetTexture(url))
-        {
-            yield return request.SendWebRequest();
+        // Store in field so OnDestroy / Clear can Abort+Dispose if the coroutine
+        // is killed externally (domain reload, scene unload, card recycled).
+        _activeRequest = UnityWebRequestTexture.GetTexture(url);
 
-            // Guard: card may have been recycled
+        using (_activeRequest)
+        {
+            yield return _activeRequest.SendWebRequest();
+
+            // Guard: card may have been recycled while the request was in flight
             if (_loadingUrl != url || !gameObject.activeInHierarchy)
             {
+                _activeRequest = null;
                 _loadCoroutine = null;
                 yield break;
             }
 
-            if (request.result == UnityWebRequest.Result.Success)
+            if (_activeRequest.result == UnityWebRequest.Result.Success)
             {
-                Texture2D tex = DownloadHandlerTexture.GetContent(request);
+                Texture2D tex = DownloadHandlerTexture.GetContent(_activeRequest);
                 if (tex != null)
                 {
                     Sprite sprite = Sprite.Create(tex,
@@ -237,12 +273,14 @@ public class CardItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
             }
             else
             {
-                Debug.LogWarning($"[CardItemUI] Failed: {url} — {request.error}");
+                Debug.LogWarning($"[CardItemUI] Failed: {url} — {_activeRequest.error}");
             }
 
             HideSpinner();
         }
 
+        // using block disposed _activeRequest; clear the reference
+        _activeRequest = null;
         _loadCoroutine = null;
     }
 
