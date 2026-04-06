@@ -31,6 +31,35 @@ public class CardItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     /// <summary>Exposed so the scroll-drag blocker can toggle interactability.</summary>
     public Button CardButton => cardButton;
 
+    /// <summary>
+    /// Returns the aspect ratio (width ÷ height) of the currently loaded sprite.
+    /// Falls back to <paramref name="fallback"/> while the image is still loading
+    /// or when no image is assigned, so the masonry layout can make an initial
+    /// size estimate before the real texture arrives.
+    /// </summary>
+    public float GetImageAspectRatio(float fallback = 0.75f)
+    {
+        if (artworkImage != null && artworkImage.sprite != null)
+        {
+            Texture2D tex = artworkImage.sprite.texture;
+            if (tex != null && tex.height > 0)
+                return (float)tex.width / tex.height;
+        }
+        return fallback;
+    }
+
+    /// <summary>
+    /// Updates the image child's LayoutElement.preferredHeight so the card's
+    /// internal VerticalLayoutGroup allocates the correct space for the image
+    /// once masonry has computed the column-width-driven height.
+    /// </summary>
+    public void SetImageHeight(float height)
+    {
+        if (artworkImage == null) return;
+        LayoutElement le = artworkImage.GetComponent<LayoutElement>();
+        if (le != null) le.preferredHeight = height;
+    }
+
     // ─────────────────────────────────────────────────────────────────
     // Static sprite cache + spinner prefab
     // ─────────────────────────────────────────────────────────────────
@@ -40,6 +69,13 @@ public class CardItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
 
     /// <summary>Call once at startup to set the spinner prefab for all cards.</summary>
     public static void SetSpinnerPrefab(GameObject prefab) => _spinnerPrefab = prefab;
+
+    /// <summary>
+    /// Fired whenever a card finishes applying a new sprite.
+    /// MasonryLayoutGroup subscribes to this to trigger a layout refresh
+    /// so cards resize to the real image aspect ratio as downloads complete.
+    /// </summary>
+    public static event Action OnAnyImageLoaded;
 
     // ─────────────────────────────────────────────────────────────────
     // State
@@ -291,6 +327,10 @@ public class CardItemUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         artworkImage.color = Color.white;
         artworkImage.preserveAspect = true;
         HideSpinner();
+
+        // Notify MasonryLayoutGroup (and any other listener) that this card now
+        // has its real texture — the layout can recalculate with the true aspect ratio.
+        OnAnyImageLoaded?.Invoke();
     }
 
     // ─────────────────────────────────────────────────────────────────

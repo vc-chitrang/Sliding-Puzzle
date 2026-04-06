@@ -43,6 +43,8 @@ public class CollectionUIManager : MonoBehaviour
     [Header("Card Grid")]
     [SerializeField] private ScrollRect cardScrollView;
     [SerializeField] private RectTransform cardGridContent;
+    [Tooltip("MasonryLayoutGroup on the same GameObject as cardGridContent.")]
+    [SerializeField] private MasonryLayoutGroup masonryLayout;
 
     [Header("Pagination")]
     [SerializeField] private Button prevPageButton;
@@ -799,17 +801,28 @@ public class CollectionUIManager : MonoBehaviour
     {
         if (items == null) items = new List<ResultsData>();
 
+        // Bind active cards; collect them for masonry
+        var activeCards = new List<CardItemUI>(items.Count);
         for (int i = 0; i < _cardPool.Count; i++)
         {
             if (i < items.Count)
+            {
                 _cardPool[i].Bind(items[i], mediaManager, OnCardClicked);
+                activeCards.Add(_cardPool[i]);
+            }
             else
+            {
                 _cardPool[i].Clear();
+            }
         }
 
-        // Scroll to top
+        // Scroll to top before masonry repositions cards
         if (cardScrollView != null)
             cardScrollView.normalizedPosition = new Vector2(0f, 1f);
+
+        // Hand active cards to masonry; it will position them in LateUpdate
+        if (masonryLayout != null)
+            masonryLayout.SetCards(activeCards);
     }
 
     // ─────────────────────────────────────────────────────────────────
