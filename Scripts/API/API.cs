@@ -5,6 +5,11 @@
     public static string APILogin = APIBaseURL + "oauth/token";
     public static string APIGetAllData = APIBaseURL + "api/web_hook/v1/artwork?key=41204aed-89d7-4a45-9455-976ac475a8ab";
 
+    /// <summary>
+    /// Base collection URL with API key. Append query params (&amp;limit=, &amp;page=, &amp;q=, etc.)
+    /// </summary>
+    public static string APICollectionBase = APIBaseURL + "api/web_hook/v1/artwork?key=41204aed-89d7-4a45-9455-976ac475a8ab";
+
     public static string APIBaseURL {
         get {
             switch (APICall.Instance.serverType) {

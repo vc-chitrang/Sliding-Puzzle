@@ -1,11 +1,7 @@
 ﻿using System;
-
 using UnityEngine;
 using UnityEngine.Events;
-
 using ViitorCloud.Utility.PopupManager;
-
-using static UnityEngine.Audio.ProcessorInstance;
 
 [Serializable]
 public class LoginData {
@@ -34,7 +30,7 @@ public class LoginHandler:MonoBehaviour {
     [TextArea(5,15)]
     public string _token;
 
-    private void Start() {
+    private void Awake() {
         //Login();
         ViitorCloud.API.ServerCommunication.ViitorCloudToken = _token;
     }
