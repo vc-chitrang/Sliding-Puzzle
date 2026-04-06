@@ -57,6 +57,7 @@ public class CollectionUIManager : MonoBehaviour
     [SerializeField] private GameObject cropImageScreen;
     [SerializeField] private Image imageToCropTarget;
     [SerializeField] private CropScreenController cropScreenController;
+    [SerializeField] private Button backButton;
 
     [Header("Pool Settings")]
     [SerializeField] private int maxPoolSize = 80;
@@ -167,10 +168,19 @@ public class CollectionUIManager : MonoBehaviour
         if (prevPageButton != null) prevPageButton.onClick.AddListener(PreviousPage);
         if (nextPageButton != null) nextPageButton.onClick.AddListener(NextPage);
 
+        // Back navigation
+        if (backButton != null) backButton.onClick.AddListener(OnBackPressed);
+
         // Drag detection — disable card buttons while scrolling to prevent accidental clicks
         WireScrollDragEvents();
 
         UpdateClearSearchVisibility();
+
+        // Browse_And_Discover_Screen may start inactive (Launch_Screen is the entry point).
+        // If the APIHandler already fetched data before this screen was activated,
+        // the event won't fire again — trigger our own fetch using the cached response.
+        if (!_filtersPopulated && APIHandler.LastFetchedData != null)
+            FetchCollection();
 
         // Load spinner prefab for card loading indicators
         LoadSpinnerPrefab();
@@ -200,6 +210,7 @@ public class CollectionUIManager : MonoBehaviour
         if (sortByDropdown != null) sortByDropdown.onValueChanged.RemoveAllListeners();
         if (prevPageButton != null) prevPageButton.onClick.RemoveAllListeners();
         if (nextPageButton != null) nextPageButton.onClick.RemoveAllListeners();
+        if (backButton     != null) backButton.onClick.RemoveAllListeners();
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -1181,13 +1192,27 @@ public class CollectionUIManager : MonoBehaviour
                 PopupManager.Instance.HideLoading();
                 if (sprite != null)
                 {
-                    imageToCropTarget.sprite = sprite;
+                    imageToCropTarget.sprite         = sprite;
                     imageToCropTarget.preserveAspect = true;
                 }
-                if (collectionScreen != null) collectionScreen.SetActive(false);
-                if (cropImageScreen  != null) cropImageScreen.SetActive(true);
+
+                if (ScreenManager.Instance != null)
+                {
+                    ScreenManager.Instance.ShowScreen(cropImageScreen);
+                }
+                else
+                {
+                    if (collectionScreen != null) collectionScreen.SetActive(false);
+                    if (cropImageScreen  != null) cropImageScreen.SetActive(true);
+                }
             });
         }
+    }
+
+    private void OnBackPressed()
+    {
+        if (ScreenManager.Instance != null)
+            ScreenManager.Instance.GoBack();
     }
 
     // ─────────────────────────────────────────────────────────────────
