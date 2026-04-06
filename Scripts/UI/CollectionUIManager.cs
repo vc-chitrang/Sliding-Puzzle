@@ -97,11 +97,11 @@ public class CollectionUIManager : MonoBehaviour
     // Drag-vs-click: disable card buttons while scrolling
     private bool _isDragging;
 
-    private enum SortMode { Default, TitleAZ, TitleZA, DateAsc, DateDesc }
+    private enum SortMode { Default, TitleAZ, TitleZA, DateAsc, DateDesc, ArtistAZ, ArtistZA }
 
-    // Sort field/order mapping
-    private static readonly string[] SortFields = { "", "title", "title", "date", "date" };
-    private static readonly string[] SortOrders = { "", "ASC", "DESC", "ASC", "DESC" };
+    // Sort field/order mapping — index matches SortMode enum value
+    private static readonly string[] SortFields = { "", "title", "title", "date", "date", "artist", "artist" };
+    private static readonly string[] SortOrders = { "", "ASC", "DESC", "ASC", "DESC", "ASC",    "DESC"   };
 
     // ─────────────────────────────────────────────────────────────────
     // Lifecycle
@@ -131,6 +131,7 @@ public class CollectionUIManager : MonoBehaviour
             perPageDropdown.ClearOptions();
             perPageDropdown.AddOptions(new List<string> { "20", "40", "80" });
             perPageDropdown.onValueChanged.AddListener(OnPerPageChanged);
+            ConfigureDropdownTemplate(perPageDropdown, 180f);
         }
 
         // Sort
@@ -138,8 +139,14 @@ public class CollectionUIManager : MonoBehaviour
         {
             sortByDropdown.ClearOptions();
             sortByDropdown.AddOptions(new List<string>
-                { "Default", "Title A-Z", "Title Z-A", "Date Ascending", "Date Descending" });
+            {
+                "Default",
+                "Title A-Z", "Title Z-A",
+                "Date Ascending", "Date Descending",
+                "Artist A-Z", "Artist Z-A"
+            });
             sortByDropdown.onValueChanged.AddListener(OnSortChanged);
+            ConfigureDropdownTemplate(sortByDropdown, 360f);
         }
 
         // Pagination
@@ -374,6 +381,57 @@ public class CollectionUIManager : MonoBehaviour
         dd.AddOptions(options);
         dd.SetValueWithoutNotify(0);
         dd.RefreshShownValue();
+        ConfigureDropdownTemplate(dd);
+    }
+
+    /// <summary>
+    /// Ensures the TMP_Dropdown popup template has a VerticalLayoutGroup and
+    /// ContentSizeFitter on its Content container so items stack and size correctly.
+    /// </summary>
+    private static void ConfigureDropdownTemplate(TMP_Dropdown dd, float maxHeight = 320f)
+    {
+        if (dd == null || dd.template == null) return;
+
+        RectTransform template = dd.template;
+
+        // Clamp the popup to a max height; the scrollbar handles overflow
+        Vector2 sd = template.sizeDelta;
+        template.sizeDelta = new Vector2(sd.x, maxHeight);
+
+        // Navigate Template → Viewport → Content
+        Transform viewport = template.Find("Viewport");
+        if (viewport == null) return;
+
+        Transform content = viewport.Find("Content");
+        if (content == null) return;
+
+        GameObject contentGO = content.gameObject;
+
+        // ── VerticalLayoutGroup ───────────────────────────────────
+        VerticalLayoutGroup vlg = contentGO.GetComponent<VerticalLayoutGroup>();
+        if (vlg == null) vlg = contentGO.AddComponent<VerticalLayoutGroup>();
+        vlg.childControlWidth      = true;
+        vlg.childControlHeight     = true;
+        vlg.childForceExpandWidth  = true;
+        vlg.childForceExpandHeight = false;
+        vlg.spacing = 2f;
+        vlg.padding = new RectOffset(4, 4, 4, 4);
+
+        // ── ContentSizeFitter ─────────────────────────────────────
+        ContentSizeFitter csf = contentGO.GetComponent<ContentSizeFitter>();
+        if (csf == null) csf = contentGO.AddComponent<ContentSizeFitter>();
+        csf.verticalFit   = ContentSizeFitter.FitMode.PreferredSize;
+        csf.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+
+        // ── Item LayoutElement (the template item cloned per option) ──
+        Transform item = content.Find("Item");
+        if (item != null)
+        {
+            LayoutElement le = item.GetComponent<LayoutElement>();
+            if (le == null) le = item.gameObject.AddComponent<LayoutElement>();
+            le.minHeight       = 40f;
+            le.preferredHeight = 40f;
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -440,21 +498,32 @@ public class CollectionUIManager : MonoBehaviour
 
     private void OnClearFilters()
     {
+        // Reset all filter dropdowns
         if (departmentDropdown != null) departmentDropdown.SetValueWithoutNotify(0);
         if (classificationDropdown != null) classificationDropdown.SetValueWithoutNotify(0);
         if (artistDropdown != null) artistDropdown.SetValueWithoutNotify(0);
         if (cultureDropdown != null) cultureDropdown.SetValueWithoutNotify(0);
         if (dateDropdown != null) dateDropdown.SetValueWithoutNotify(0);
 
+        // Reset filter state
         _selectedDeptId = 0;
         _selectedClassId = 0;
         _selectedArtistId = 0;
         _selectedCulture = "";
         _selectedDate = "";
 
+        // Reset search
         if (searchInputField != null) searchInputField.text = "";
         _searchQuery = "";
         UpdateClearSearchVisibility();
+
+        // Reset sort
+        if (sortByDropdown != null) sortByDropdown.SetValueWithoutNotify(0);
+        _sortMode = SortMode.Default;
+
+        // Reset per-page
+        if (perPageDropdown != null) perPageDropdown.SetValueWithoutNotify(0);
+        _itemsPerPage = 20;
 
         _currentPage = 1;
         FetchCollection();
