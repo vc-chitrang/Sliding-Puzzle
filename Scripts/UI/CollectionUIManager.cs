@@ -99,6 +99,13 @@ public class CollectionUIManager : MonoBehaviour
     // Drag-vs-click: disable card buttons while scrolling
     private bool _isDragging;
 
+    // Individual clear (×) buttons — one per filter dropdown
+    private Button _deptClearBtn;
+    private Button _classClearBtn;
+    private Button _artistClearBtn;
+    private Button _cultureClearBtn;
+    private Button _dateClearBtn;
+
     private enum SortMode { Default, TitleAZ, TitleZA, DateAsc, DateDesc, ArtistAZ, ArtistZA }
 
     // Sort field/order mapping — index matches SortMode enum value
@@ -135,7 +142,7 @@ public class CollectionUIManager : MonoBehaviour
             perPageDropdown.SetValueWithoutNotify(0);  // always start at "20"
             perPageDropdown.RefreshShownValue();
             perPageDropdown.onValueChanged.AddListener(OnPerPageChanged);
-            ConfigureDropdownTemplate(perPageDropdown, 140f); // 3 items × ~44px ≈ 132px
+            ConfigureDropdownTemplate(perPageDropdown, 172f); // 3 items × 52 + 16 = 172
         }
 
         // Sort
@@ -326,7 +333,7 @@ public class CollectionUIManager : MonoBehaviour
                 }
             }
         }
-        SetDropdown(departmentDropdown, deptLabels);
+        SetDropdown(departmentDropdown, deptLabels, addSearch: true);
 
         // Classification (ID-based)
         _classIds = new List<int> { 0 };
@@ -342,7 +349,7 @@ public class CollectionUIManager : MonoBehaviour
                 }
             }
         }
-        SetDropdown(classificationDropdown, classLabels);
+        SetDropdown(classificationDropdown, classLabels, addSearch: true);
 
         // Artist (ID-based)
         _artistIds = new List<int> { 0 };
@@ -358,7 +365,7 @@ public class CollectionUIManager : MonoBehaviour
                 }
             }
         }
-        SetDropdown(artistDropdown, artistLabels);
+        SetDropdown(artistDropdown, artistLabels, addSearch: true);
 
         // Culture (name-based)
         _cultureValues = new List<string> { "" };
@@ -374,7 +381,7 @@ public class CollectionUIManager : MonoBehaviour
                 }
             }
         }
-        SetDropdown(cultureDropdown, cultureLabels);
+        SetDropdown(cultureDropdown, cultureLabels, addSearch: true);
 
         // Date (name-based)
         _dateValues = new List<string> { "" };
@@ -390,7 +397,82 @@ public class CollectionUIManager : MonoBehaviour
                 }
             }
         }
-        SetDropdown(dateDropdown, dateLabels);
+        SetDropdown(dateDropdown, dateLabels, addSearch: true);
+
+        // ── Add search controller + clear buttons (first load only) ────────
+        AddDropdownSearch(departmentDropdown);
+        AddDropdownSearch(classificationDropdown);
+        AddDropdownSearch(artistDropdown);
+        AddDropdownSearch(cultureDropdown);
+        AddDropdownSearch(dateDropdown);
+
+        _deptClearBtn    = CreateClearButton(departmentDropdown);
+        _classClearBtn   = CreateClearButton(classificationDropdown);
+        _artistClearBtn  = CreateClearButton(artistDropdown);
+        _cultureClearBtn = CreateClearButton(cultureDropdown);
+        _dateClearBtn    = CreateClearButton(dateDropdown);
+
+        // Wire clear button clicks — each resets its dropdown to index 0
+        // and fires the same handler as a user selecting index 0
+        if (_deptClearBtn    != null) _deptClearBtn.onClick.AddListener(()    => { departmentDropdown.SetValueWithoutNotify(0);      OnDepartmentChanged(0); });
+        if (_classClearBtn   != null) _classClearBtn.onClick.AddListener(()   => { classificationDropdown.SetValueWithoutNotify(0);  OnClassificationChanged(0); });
+        if (_artistClearBtn  != null) _artistClearBtn.onClick.AddListener(()  => { artistDropdown.SetValueWithoutNotify(0);          OnArtistChanged(0); });
+        if (_cultureClearBtn != null) _cultureClearBtn.onClick.AddListener(() => { cultureDropdown.SetValueWithoutNotify(0);         OnCultureChanged(0); });
+        if (_dateClearBtn    != null) _dateClearBtn.onClick.AddListener(()    => { dateDropdown.SetValueWithoutNotify(0);            OnDateChanged(0); });
+    }
+
+    /// <summary>Attaches DropdownSearchController to a filter dropdown if not already present.</summary>
+    private void AddDropdownSearch(TMP_Dropdown dd)
+    {
+        if (dd == null) return;
+        var ctrl = dd.GetComponent<DropdownSearchController>();
+        if (ctrl == null) ctrl = dd.gameObject.AddComponent<DropdownSearchController>();
+        ctrl.spinnerPrefab = spinnerPrefab;
+    }
+
+    /// <summary>
+    /// Creates a small × button as a child of the dropdown, anchored to its
+    /// right edge. The button is hidden by default; it appears when the dropdown
+    /// has an active selection (value > 0) and clears it when clicked.
+    /// The button is rendered on top of the DropdownSearchController's interceptor
+    /// because it is added later (higher sibling index = drawn on top).
+    /// </summary>
+    private static Button CreateClearButton(TMP_Dropdown dd)
+    {
+        if (dd == null) return null;
+
+        var go = new GameObject("ClearBtn",
+            typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        go.transform.SetParent(dd.transform, false);
+
+        // Anchor to the right-center of the dropdown, inset from the edge
+        var rt = go.GetComponent<RectTransform>();
+        rt.anchorMin        = new Vector2(1f, 0.5f);
+        rt.anchorMax        = new Vector2(1f, 0.5f);
+        rt.pivot            = new Vector2(1f, 0.5f);
+        rt.sizeDelta        = new Vector2(32f, 32f);
+        rt.anchoredPosition = new Vector2(-6f, 0f);
+
+        var img = go.GetComponent<Image>();
+        img.color         = new Color(0.7f, 0.15f, 0.15f, 0.9f);
+        img.raycastTarget = true;
+
+        // × label
+        var lGO = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer));
+        lGO.transform.SetParent(go.transform, false);
+        var lRT = lGO.GetComponent<RectTransform>();
+        lRT.anchorMin = Vector2.zero;
+        lRT.anchorMax = Vector2.one;
+        lRT.offsetMin = lRT.offsetMax = Vector2.zero;
+        var lTMP = lGO.AddComponent<TextMeshProUGUI>();
+        lTMP.text           = "×";
+        lTMP.fontSize       = 20f;
+        lTMP.color          = Color.white;
+        lTMP.alignment      = TextAlignmentOptions.Center;
+        lTMP.raycastTarget  = false;
+
+        go.SetActive(false);   // hidden until a value is selected
+        return go.GetComponent<Button>();
     }
 
     /// <summary>
@@ -471,7 +553,7 @@ public class CollectionUIManager : MonoBehaviour
         dd.AddOptions(options);
     }
 
-    private static void SetDropdown(TMP_Dropdown dd, List<string> options)
+    private static void SetDropdown(TMP_Dropdown dd, List<string> options, bool addSearch = false)
     {
         if (dd == null) return;
         dd.ClearOptions();
@@ -481,7 +563,7 @@ public class CollectionUIManager : MonoBehaviour
         // Auto-calculate popup max height: show up to 8 items (~52 px each) + padding
         int visible = Mathf.Min(options.Count, 8);
         float maxH = visible * 52f + 16f;
-        ConfigureDropdownTemplate(dd, maxH);
+        ConfigureDropdownTemplate(dd, maxH, addSearch);
     }
 
     /// <summary>
@@ -491,7 +573,7 @@ public class CollectionUIManager : MonoBehaviour
     ///  • Item Background and Checkmark are excluded from layout (ignoreLayout) so
     ///    they stay correctly anchored while the Item itself resizes.
     /// </summary>
-    private static void ConfigureDropdownTemplate(TMP_Dropdown dd, float maxHeight = 320f)
+    private static void ConfigureDropdownTemplate(TMP_Dropdown dd, float maxHeight = 320f, bool addSearch = false)
     {
         if (dd == null || dd.template == null) return;
 
@@ -595,6 +677,135 @@ public class CollectionUIManager : MonoBehaviour
                 labelRT.offsetMax = Vector2.zero;
             }
         }
+
+        // ── Search field + spinner overlay injected into template ────────
+        if (addSearch)
+            InjectSearchAndSpinnerIntoTemplate(template, viewport?.GetComponent<RectTransform>());
+    }
+
+    /// <summary>
+    /// Injects a search InputField at the top of the dropdown template and a
+    /// semi-transparent spinner overlay that covers the popup during its 2-frame
+    /// layout-rebuild phase. Both are cloned each time the dropdown opens (because
+    /// TMP_Dropdown instantiates the entire template). The DropdownSearchController
+    /// on the same GO connects and drives both children.
+    /// </summary>
+    private static void InjectSearchAndSpinnerIntoTemplate(
+        RectTransform template, RectTransform viewportRT)
+    {
+        const float kSearchH = 48f;
+
+        // Guard: already injected
+        if (template.Find("SearchField") != null) return;
+
+        // Expand template height to accommodate the search bar
+        var tsd = template.sizeDelta;
+        template.sizeDelta = new Vector2(tsd.x, tsd.y + kSearchH);
+
+        // Push the Viewport down so the search bar sits above it
+        if (viewportRT != null)
+            viewportRT.offsetMax = new Vector2(viewportRT.offsetMax.x, -kSearchH);
+
+        // ── SearchField ───────────────────────────────────────────────────
+        var sfGO = new GameObject("SearchField",
+            typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        sfGO.transform.SetParent(template, false);
+        sfGO.transform.SetSiblingIndex(0);   // first child = drawn first (below popup items)
+
+        var sfRT = sfGO.GetComponent<RectTransform>();
+        sfRT.anchorMin        = new Vector2(0f, 1f);
+        sfRT.anchorMax        = new Vector2(1f, 1f);
+        sfRT.pivot            = new Vector2(0.5f, 1f);
+        sfRT.sizeDelta        = new Vector2(0f, kSearchH);
+        sfRT.anchoredPosition = Vector2.zero;
+
+        var sfImg = sfGO.GetComponent<Image>();
+        sfImg.color         = new Color(0.12f, 0.12f, 0.12f, 1f);
+        sfImg.raycastTarget = true;
+
+        // ── InputField inside SearchField ─────────────────────────────────
+        var infGO = new GameObject("InputField", typeof(RectTransform), typeof(CanvasRenderer));
+        infGO.transform.SetParent(sfGO.transform, false);
+
+        var infRT = infGO.GetComponent<RectTransform>();
+        infRT.anchorMin = Vector2.zero;
+        infRT.anchorMax = Vector2.one;
+        infRT.offsetMin = new Vector2(12f, 6f);
+        infRT.offsetMax = new Vector2(-12f, -6f);
+
+        // Text Area
+        var taGO = new GameObject("Text Area", typeof(RectTransform));
+        taGO.transform.SetParent(infGO.transform, false);
+        var taRT = taGO.GetComponent<RectTransform>();
+        taRT.anchorMin = Vector2.zero;
+        taRT.anchorMax = Vector2.one;
+        taRT.offsetMin = taRT.offsetMax = Vector2.zero;
+
+        // Placeholder text
+        var phGO = new GameObject("Placeholder", typeof(RectTransform), typeof(CanvasRenderer));
+        phGO.transform.SetParent(taGO.transform, false);
+        var phRT = phGO.GetComponent<RectTransform>();
+        phRT.anchorMin = Vector2.zero;
+        phRT.anchorMax = Vector2.one;
+        phRT.offsetMin = phRT.offsetMax = Vector2.zero;
+        var phTMP = phGO.AddComponent<TextMeshProUGUI>();
+        phTMP.text      = "Search...";
+        phTMP.fontSize  = 16f;
+        phTMP.color     = new Color(0.6f, 0.6f, 0.6f, 0.8f);
+        phTMP.fontStyle = FontStyles.Italic;
+        phTMP.alignment = TextAlignmentOptions.Left;
+        phTMP.raycastTarget = false;
+
+        // Editable text
+        var txGO = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer));
+        txGO.transform.SetParent(taGO.transform, false);
+        var txRT = txGO.GetComponent<RectTransform>();
+        txRT.anchorMin = Vector2.zero;
+        txRT.anchorMax = Vector2.one;
+        txRT.offsetMin = txRT.offsetMax = Vector2.zero;
+        var txTMP = txGO.AddComponent<TextMeshProUGUI>();
+        txTMP.fontSize  = 16f;
+        txTMP.color     = Color.white;
+        txTMP.alignment = TextAlignmentOptions.Left;
+        txTMP.raycastTarget = false;
+
+        // Wire TMP_InputField
+        var inf = infGO.AddComponent<TMP_InputField>();
+        inf.textViewport  = taRT;
+        inf.textComponent = txTMP;
+        inf.placeholder   = phTMP;
+        inf.lineType      = TMP_InputField.LineType.SingleLine;
+
+        // ── SpinnerOverlay (covers popup during layout rebuild) ────────────
+        var soGO = new GameObject("SpinnerOverlay",
+            typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        soGO.transform.SetParent(template, false);
+
+        var soRT = soGO.GetComponent<RectTransform>();
+        soRT.anchorMin = Vector2.zero;
+        soRT.anchorMax = Vector2.one;
+        soRT.offsetMin = soRT.offsetMax = Vector2.zero;
+
+        var soImg = soGO.GetComponent<Image>();
+        soImg.color         = new Color(0f, 0f, 0f, 0.72f);
+        soImg.raycastTarget = true;
+
+        // "Loading…" label centred on the overlay
+        var ltGO = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer));
+        ltGO.transform.SetParent(soGO.transform, false);
+        var ltRT = ltGO.GetComponent<RectTransform>();
+        ltRT.anchorMin = new Vector2(0.5f, 0.5f);
+        ltRT.anchorMax = new Vector2(0.5f, 0.5f);
+        ltRT.sizeDelta = new Vector2(220f, 50f);
+        var ltTMP = ltGO.AddComponent<TextMeshProUGUI>();
+        ltTMP.text          = "Loading…";
+        ltTMP.fontSize      = 18f;
+        ltTMP.color         = Color.white;
+        ltTMP.alignment     = TextAlignmentOptions.Center;
+        ltTMP.raycastTarget = false;
+
+        soGO.SetActive(false); // hidden; DropdownSearchController shows/hides it
+
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -628,6 +839,7 @@ public class CollectionUIManager : MonoBehaviour
     {
         _selectedDeptId = idx < _deptIds.Count ? _deptIds[idx] : 0;
         _currentPage = 1;
+        SetClearBtnVisible(_deptClearBtn, idx > 0);
         FetchCollection();
     }
 
@@ -635,6 +847,7 @@ public class CollectionUIManager : MonoBehaviour
     {
         _selectedClassId = idx < _classIds.Count ? _classIds[idx] : 0;
         _currentPage = 1;
+        SetClearBtnVisible(_classClearBtn, idx > 0);
         FetchCollection();
     }
 
@@ -642,6 +855,7 @@ public class CollectionUIManager : MonoBehaviour
     {
         _selectedArtistId = idx < _artistIds.Count ? _artistIds[idx] : 0;
         _currentPage = 1;
+        SetClearBtnVisible(_artistClearBtn, idx > 0);
         FetchCollection();
     }
 
@@ -649,6 +863,7 @@ public class CollectionUIManager : MonoBehaviour
     {
         _selectedCulture = idx < _cultureValues.Count ? _cultureValues[idx] : "";
         _currentPage = 1;
+        SetClearBtnVisible(_cultureClearBtn, idx > 0);
         FetchCollection();
     }
 
@@ -656,7 +871,13 @@ public class CollectionUIManager : MonoBehaviour
     {
         _selectedDate = idx < _dateValues.Count ? _dateValues[idx] : "";
         _currentPage = 1;
+        SetClearBtnVisible(_dateClearBtn, idx > 0);
         FetchCollection();
+    }
+
+    private static void SetClearBtnVisible(Button btn, bool visible)
+    {
+        if (btn != null) btn.gameObject.SetActive(visible);
     }
 
     private void OnClearFilters()
@@ -667,6 +888,13 @@ public class CollectionUIManager : MonoBehaviour
         if (artistDropdown != null) artistDropdown.SetValueWithoutNotify(0);
         if (cultureDropdown != null) cultureDropdown.SetValueWithoutNotify(0);
         if (dateDropdown != null) dateDropdown.SetValueWithoutNotify(0);
+
+        // Hide all individual clear buttons
+        SetClearBtnVisible(_deptClearBtn,    false);
+        SetClearBtnVisible(_classClearBtn,   false);
+        SetClearBtnVisible(_artistClearBtn,  false);
+        SetClearBtnVisible(_cultureClearBtn, false);
+        SetClearBtnVisible(_dateClearBtn,    false);
 
         // Reset filter state
         _selectedDeptId = 0;
