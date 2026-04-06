@@ -460,6 +460,7 @@ public class CropGridResizer : MonoBehaviour
             Image img = go.GetComponent<Image>();
             img.color = handleColor;
             img.raycastTarget = true;
+            img.sprite = CreateCircleSprite(128);
 
             // Add drag handler
             CornerDragHandle dragHandle = go.AddComponent<CornerDragHandle>();
@@ -522,6 +523,41 @@ public class CropGridResizer : MonoBehaviour
         float scaleFactor = _rootCanvas.scaleFactor;
         if (scaleFactor <= 0f) scaleFactor = 1f;
         return screenDelta / scaleFactor;
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Circle sprite generator
+    // ─────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Generates a white anti-aliased circle sprite at runtime.
+    /// Used so corner handles render as circles without needing an asset.
+    /// </summary>
+    private static Sprite CreateCircleSprite(int size = 128)
+    {
+        Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        tex.filterMode = FilterMode.Bilinear;
+        tex.wrapMode   = TextureWrapMode.Clamp;
+        tex.name       = "CircleHandle";
+
+        Color[] pixels = new Color[size * size];
+        Vector2 center = new Vector2(size * 0.5f, size * 0.5f);
+        float   radius = size * 0.5f;
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float dist  = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), center);
+                float alpha = Mathf.Clamp01(radius - dist + 1f); // 1px anti-alias edge
+                pixels[y * size + x] = new Color(1f, 1f, 1f, alpha);
+            }
+        }
+
+        tex.SetPixels(pixels);
+        tex.Apply();
+
+        return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
     }
 }
 

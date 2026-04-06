@@ -56,6 +56,7 @@ public class CollectionUIManager : MonoBehaviour
     [SerializeField] private GameObject collectionScreen;
     [SerializeField] private GameObject cropImageScreen;
     [SerializeField] private Image imageToCropTarget;
+    [SerializeField] private CropScreenController cropScreenController;
 
     [Header("Pool Settings")]
     [SerializeField] private int maxPoolSize = 80;
@@ -1161,9 +1162,17 @@ public class CollectionUIManager : MonoBehaviour
         if (_isDragging) return;
         if (data == null || string.IsNullOrEmpty(data.primary_image)) return;
         Debug.Log($"[CollectionUI] Selected: {data.title}");
+        LoadAndOpenCropScreen(data);
+    }
 
+    private void LoadAndOpenCropScreen(ResultsData data)
+    {
         PopupManager.Instance.ShowLoading();
         PopupManager.Instance.SetProgressText("Loading image...");
+
+        // Pass artwork metadata to CropScreenController before loading
+        if (cropScreenController != null)
+            cropScreenController.SetArtworkData(data);
 
         if (mediaManager != null && imageToCropTarget != null)
         {
@@ -1176,7 +1185,7 @@ public class CollectionUIManager : MonoBehaviour
                     imageToCropTarget.preserveAspect = true;
                 }
                 if (collectionScreen != null) collectionScreen.SetActive(false);
-                if (cropImageScreen != null) cropImageScreen.SetActive(true);
+                if (cropImageScreen  != null) cropImageScreen.SetActive(true);
             });
         }
     }
