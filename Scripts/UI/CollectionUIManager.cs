@@ -200,7 +200,12 @@ public class CollectionUIManager : MonoBehaviour
 
     private void OnInitialDataReceived(MAPData data)
     {
-        OnFetchSuccess(data);
+        // APIHandler fires this event with its own default limit (e.g. 35 items).
+        // We don't use that data directly — instead treat the event as an
+        // "auth-ready / server reachable" signal and do our own controlled
+        // fetch with limit=20 & page=1 so the first load is always consistent
+        // with every subsequent page/filter change.
+        FetchCollection();
     }
 
     // ─────────────────────────────────────────────────────────────────
