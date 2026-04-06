@@ -257,11 +257,20 @@ public class CollectionUIManager : MonoBehaviour
             return;
         }
 
-        // Populate filter dropdowns once (from the first response)
-        if (!_filtersPopulated && data.filters != null)
+        // First load → configure dropdown templates + fill initial options.
+        // Every subsequent load → refresh options to match the server-side cascade:
+        // the API returns ONLY options valid for the currently active filters.
+        if (data.filters != null)
         {
-            PopulateFilterDropdowns(data.filters);
-            _filtersPopulated = true;
+            if (!_filtersPopulated)
+            {
+                PopulateFilterDropdowns(data.filters);  // sets up templates + initial options
+                _filtersPopulated = true;
+            }
+            else
+            {
+                UpdateFilterDropdowns(data.filters);    // updates options + restores/resets selections
+            }
         }
 
         // Pagination info from API
@@ -371,6 +380,84 @@ public class CollectionUIManager : MonoBehaviour
             }
         }
         SetDropdown(dateDropdown, dateLabels);
+    }
+
+    /// <summary>
+    /// Called on every API response after the first.
+    /// Rebuilds all five filter option lists from the server response, which
+    /// already contains ONLY options valid for the current active filter combination
+    /// (server-side cascade). Restores any still-valid active selections via
+    /// SetValueWithoutNotify so no new API call is triggered. Resets any selection
+    /// whose value is no longer present in the narrowed option set.
+    /// </summary>
+    private void UpdateFilterDropdowns(Filters filters)
+    {
+        // ── Department ──────────────────────────────────────────────
+        _deptIds = new List<int> { 0 };
+        var deptLabels = new List<string> { "Department" };
+        if (filters.department != null)
+            foreach (var d in filters.department)
+                if (!string.IsNullOrEmpty(d.dept)) { _deptIds.Add(d.id); deptLabels.Add(d.dept); }
+        RefreshDropdownOptions(departmentDropdown, deptLabels);
+        int deptIdx = _deptIds.IndexOf(_selectedDeptId);
+        if (deptIdx < 0) { _selectedDeptId = 0; deptIdx = 0; }
+        if (departmentDropdown != null) { departmentDropdown.SetValueWithoutNotify(deptIdx); departmentDropdown.RefreshShownValue(); }
+
+        // ── Classification ──────────────────────────────────────────
+        _classIds = new List<int> { 0 };
+        var classLabels = new List<string> { "Classification" };
+        if (filters.classification != null)
+            foreach (var c in filters.classification)
+                if (!string.IsNullOrEmpty(c.@class)) { _classIds.Add(c.id); classLabels.Add(c.@class); }
+        RefreshDropdownOptions(classificationDropdown, classLabels);
+        int classIdx = _classIds.IndexOf(_selectedClassId);
+        if (classIdx < 0) { _selectedClassId = 0; classIdx = 0; }
+        if (classificationDropdown != null) { classificationDropdown.SetValueWithoutNotify(classIdx); classificationDropdown.RefreshShownValue(); }
+
+        // ── Artist ──────────────────────────────────────────────────
+        _artistIds = new List<int> { 0 };
+        var artistLabels = new List<string> { "Artist/Maker" };
+        if (filters.artist != null)
+            foreach (var a in filters.artist)
+                if (!string.IsNullOrEmpty(a.name)) { _artistIds.Add(a.id); artistLabels.Add(a.name); }
+        RefreshDropdownOptions(artistDropdown, artistLabels);
+        int artistIdx = _artistIds.IndexOf(_selectedArtistId);
+        if (artistIdx < 0) { _selectedArtistId = 0; artistIdx = 0; }
+        if (artistDropdown != null) { artistDropdown.SetValueWithoutNotify(artistIdx); artistDropdown.RefreshShownValue(); }
+
+        // ── Culture ─────────────────────────────────────────────────
+        _cultureValues = new List<string> { "" };
+        var cultureLabels = new List<string> { "Place of origin" };
+        if (filters.culture != null)
+            foreach (var c in filters.culture)
+                if (!string.IsNullOrEmpty(c.culture)) { _cultureValues.Add(c.culture); cultureLabels.Add(c.culture); }
+        RefreshDropdownOptions(cultureDropdown, cultureLabels);
+        int cultureIdx = _cultureValues.IndexOf(_selectedCulture);
+        if (cultureIdx < 0) { _selectedCulture = ""; cultureIdx = 0; }
+        if (cultureDropdown != null) { cultureDropdown.SetValueWithoutNotify(cultureIdx); cultureDropdown.RefreshShownValue(); }
+
+        // ── Date ────────────────────────────────────────────────────
+        _dateValues = new List<string> { "" };
+        var dateLabels = new List<string> { "Date" };
+        if (filters.date != null)
+            foreach (var d in filters.date)
+                if (!string.IsNullOrEmpty(d.date)) { _dateValues.Add(d.date); dateLabels.Add(d.date); }
+        RefreshDropdownOptions(dateDropdown, dateLabels);
+        int dateIdx = _dateValues.IndexOf(_selectedDate);
+        if (dateIdx < 0) { _selectedDate = ""; dateIdx = 0; }
+        if (dateDropdown != null) { dateDropdown.SetValueWithoutNotify(dateIdx); dateDropdown.RefreshShownValue(); }
+    }
+
+    /// <summary>
+    /// Re-populates a dropdown's option list WITHOUT reconfiguring its template.
+    /// Template layout (VerticalLayoutGroup, ContentSizeFitter, etc.) is already
+    /// set up from the first load via SetDropdown → ConfigureDropdownTemplate.
+    /// </summary>
+    private static void RefreshDropdownOptions(TMP_Dropdown dd, List<string> options)
+    {
+        if (dd == null) return;
+        dd.ClearOptions();
+        dd.AddOptions(options);
     }
 
     private static void SetDropdown(TMP_Dropdown dd, List<string> options)
