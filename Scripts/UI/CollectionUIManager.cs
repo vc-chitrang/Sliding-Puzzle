@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -65,7 +65,8 @@ public class CollectionUIManager : MonoBehaviour
     [Header("Card Loading")]
     [Tooltip("Spinner prefab shown on each card while its image loads.")]
     [SerializeField] private GameObject spinnerPrefab;
-
+    [SerializeField] private TMP_FontAsset TMP_FontAsset;
+    [SerializeField] private Sprite selectedPageSprite;
     // ─────────────────────────────────────────────────────────────────
     // State
     // ─────────────────────────────────────────────────────────────────
@@ -1094,7 +1095,8 @@ public class CollectionUIManager : MonoBehaviour
         if (nextPageButton != null) nextPageButton.interactable = _currentPage < _lastPage;
 
         if (pageInfoText != null)
-            pageInfoText.text = $"Page {_currentPage} of {_lastPage}";
+            pageInfoText.text = $" ... {_lastPage}";
+            //pageInfoText.text = $"Page {_currentPage} of {_lastPage}";
 
         BuildPageNumberButtons();
     }
@@ -1122,8 +1124,11 @@ public class CollectionUIManager : MonoBehaviour
 
             Image bg = btnGO.GetComponent<Image>();
             bg.color = pageIndex == _currentPage
-                ? new Color(0.85f, 0.15f, 0.45f, 1f)
-                : new Color(0.25f, 0.25f, 0.25f, 1f);
+                ? new Color(0.85f,0.15f,0.45f,1f)
+                : new Color(0.25f,0.25f,0.25f,1f);
+
+            //bg.color = pageIndex == _currentPage ? Color.white : new Color(0,0,0, 0f);
+            //bg.sprite = pageIndex == _currentPage ? selectedPageSprite : null;
 
             Button btn = btnGO.GetComponent<Button>();
             btn.targetGraphic = bg;
@@ -1143,6 +1148,7 @@ public class CollectionUIManager : MonoBehaviour
             tmp.color = Color.white;
             tmp.alignment = TextAlignmentOptions.Center;
             tmp.raycastTarget = false;
+            //tmp.font = TMP_FontAsset;
         }
     }
 

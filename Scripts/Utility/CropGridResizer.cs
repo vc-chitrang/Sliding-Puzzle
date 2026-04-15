@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -39,6 +39,7 @@ public class CropGridResizer : MonoBehaviour
     [Header("Size Limits")]
     [Tooltip("Minimum grid size as a fraction of the initial size (0.2 = 20%).")]
     [SerializeField, Range(0.1f, 0.5f)] private float minSizeFraction = 0.2f;
+    [SerializeField] private bool canShowZoomHandle = true;
 
     // ─────────────────────────────────────────────────────────────────
     // Events
@@ -156,7 +157,7 @@ public class CropGridResizer : MonoBehaviour
         SetGridSizeAndCenter(_initialSize);
 
         // Create corner handles (only once)
-        if (_handles == null)
+        if (_handles == null && canShowZoomHandle)
             CreateCornerHandles();
 
         // Attach drag-to-move on the grid itself (only once)
