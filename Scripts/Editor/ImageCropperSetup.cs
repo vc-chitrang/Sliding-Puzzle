@@ -121,57 +121,10 @@ public static class ImageCropperSetup
             contentTransform = imgGO.transform;
         }
 
-        // ── Create CropResultPanel (output display) ──────────────────────
-        Canvas parentCanvas = cropImageScreen.GetComponentInParent<Canvas>();
-        if (parentCanvas == null)
-        {
-            Debug.LogError("ImageCropperSetup: No Canvas found as parent of CropImageScreen.");
-            return;
-        }
-
-        GameObject resultPanel = GameObject.Find("CropResultPanel");
-        if (resultPanel == null)
-        {
-            resultPanel = new GameObject("CropResultPanel", typeof(RectTransform));
-            resultPanel.transform.SetParent(parentCanvas.transform, false);
-
-            RectTransform rpRect = resultPanel.GetComponent<RectTransform>();
-            // Position in bottom-right corner
-            rpRect.anchorMin = new Vector2(0.65f, 0.02f);
-            rpRect.anchorMax = new Vector2(0.98f, 0.35f);
-            rpRect.sizeDelta = Vector2.zero;
-            rpRect.anchoredPosition = Vector2.zero;
-
-            Image bgImage = resultPanel.AddComponent<Image>();
-            bgImage.color = new Color(0.1f, 0.1f, 0.1f, 0.85f);
-
-            // Start hidden
-            resultPanel.SetActive(false);
-            Debug.Log("ImageCropperSetup: Created CropResultPanel.");
-        }
-
-        // ── Create OutputImage inside CropResultPanel ────────────────────
-        Transform outputTransform = resultPanel.transform.Find("OutputImage");
-        Image outputImage;
-        if (outputTransform == null)
-        {
-            GameObject outputGO = new GameObject("OutputImage", typeof(RectTransform));
-            outputGO.transform.SetParent(resultPanel.transform, false);
-
-            RectTransform outRect = outputGO.GetComponent<RectTransform>();
-            outRect.anchorMin = new Vector2(0.05f, 0.05f);
-            outRect.anchorMax = new Vector2(0.95f, 0.95f);
-            outRect.sizeDelta = Vector2.zero;
-            outRect.anchoredPosition = Vector2.zero;
-
-            outputImage = outputGO.AddComponent<Image>();
-            outputImage.preserveAspect = true;
-            Debug.Log("ImageCropperSetup: Created OutputImage inside CropResultPanel.");
-        }
-        else
-        {
-            outputImage = outputTransform.GetComponent<Image>();
-        }
+        // NOTE: CropResultPanel has been removed. Post-crop display is handled by
+        // Artwork_Focus_Screen (ArtworkFocusScreenController). The ImageCropper.outputImage
+        // field is intentionally left null — the crop result flows through
+        // CropScreenController.OnCropComplete → ArtworkFocusScreenController.SetData.
 
         // ── Create Crop Button ───────────────────────────────────────────
         GameObject cropButtonGO = GameObject.Find("CropImageButton");
@@ -233,7 +186,7 @@ public static class ImageCropperSetup
         SerializedObject so = new SerializedObject(cropper);
         so.FindProperty("cropViewPort").objectReferenceValue = cropViewPortImage;
         so.FindProperty("imageToCrop").objectReferenceValue = imageToCropImage;
-        so.FindProperty("outputImage").objectReferenceValue = outputImage;
+        so.FindProperty("outputImage").objectReferenceValue = null;  // CropResultPanel removed
         so.FindProperty("enableDebugLogs").boolValue = true;
         so.ApplyModifiedProperties();
 

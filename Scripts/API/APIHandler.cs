@@ -6,6 +6,13 @@ public class APIHandler : MonoBehaviour
 {
     public static UnityEvent<MAPData> OnAPIDataFetchedEvent = new UnityEvent<MAPData>();
 
+    /// <summary>
+    /// The most recent successful API response.
+    /// Allows screens that become active after the event has already fired
+    /// (e.g. Launch_Screen) to retrieve the data without waiting for the next fetch.
+    /// </summary>
+    public static MAPData LastFetchedData { get; private set; }
+
     private void OnEnable()
     {
         LoginHandler.onLoginSuccessEvent += OnLoginSuccess;
@@ -50,6 +57,7 @@ public class APIHandler : MonoBehaviour
         if (response != null && response.results != null)
         {
             Debug.Log($"[APIHandler] Fetched {response.results.data?.Count ?? 0} artworks.");
+            LastFetchedData = response;
             OnAPIDataFetchedEvent?.Invoke(response);
         }
         else

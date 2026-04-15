@@ -2,7 +2,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
+using UnityEngine.Networking;
 using UnityEngine.UI;
+using ViitorCloud.Utility.PopupManager;
 
 /// <summary>
 /// Sliding puzzle manager — UI-based.
@@ -68,6 +70,13 @@ public class GameManager : MonoBehaviour
     private int _moveCount;
     private float _cellSize;
 
+    // Launch mode — true until the first tile/arrow click or a cropped sprite is loaded
+    private bool _isLaunchMode = true;
+
+    // ── Auto-shuffle (launch mode only) ──────────────────────────────
+    private Coroutine  _autoShuffleCoroutine;
+    private Vector2Int _lastAutoMoveFrom = new Vector2Int(-999, -999);
+
     // ── Arrow system ─────────────────────────────────────────────────
     // Each direction = offset from empty cell to the adjacent tile
     // that the arrow can pull in.
@@ -106,6 +115,7 @@ public class GameManager : MonoBehaviour
             _uiManager = gameObject.AddComponent<UIManager>();
 
         _uiManager.Initialize(this);
+        _uiManager.EnterLaunchMode();   // start in launch mode
 
         // Ensure board panel has a GridLayoutGroup
         if (boardPanel != null)
@@ -116,18 +126,83 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    private void OnEnable()
+    {
+        APIHandler.OnAPIDataFetchedEvent.AddListener(OnAPIDataForLaunch);
+    }
+
+    private void OnDisable()
+    {
+        APIHandler.OnAPIDataFetchedEvent.RemoveListener(OnAPIDataForLaunch);
+    }
+
     private void Start()
     {
         LoadAvailableTextures();
 
+        // Use API data for the launch preview if already available
+        if (APIHandler.LastFetchedData != null)
+        {
+            OnAPIDataForLaunch(APIHandler.LastFetchedData);
+            return;
+        }
+
+        // Fallback: local textures (autoStartOnLoad)
         if (!autoStartOnLoad) return;
 
         Texture2D tex = SelectInitialTexture();
         if (tex == null)
         {
-            Debug.LogError("Sliding Puzzle: No textures found.");
+            Debug.LogWarning("Sliding Puzzle: No local textures found for launch preview.");
             return;
         }
+
+        BuildPuzzle(tex, true);
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Launch-mode image loading from API
+    // ─────────────────────────────────────────────────────────────────
+
+    private void OnAPIDataForLaunch(MAPData data)
+    {
+        // Only load once per launch mode session and only if no tiles exist yet
+        if (!_isLaunchMode || _spawnedTiles.Count > 0) return;
+        if (data?.results?.data == null || data.results.data.Count == 0) return;
+
+        var valid = data.results.data.FindAll(d => !string.IsNullOrEmpty(d.primary_image));
+        if (valid.Count == 0) return;
+
+        var chosen = valid[Random.Range(0, valid.Count)];
+        StartCoroutine(LoadLaunchImageRoutine(chosen.primary_image));
+    }
+
+    private IEnumerator LoadLaunchImageRoutine(string url)
+    {
+        PopupManager.Instance.ShowLoading();
+
+        using var req = UnityWebRequestTexture.GetTexture(url);
+        yield return req.SendWebRequest();
+
+        PopupManager.Instance.HideLoading();
+
+        if (!_isLaunchMode) yield break;   // user already interacted — skip
+        if (req.result != UnityWebRequest.Result.Success)
+        {
+            Debug.LogWarning($"[GameManager] Launch image load failed: {req.error}");
+            yield break;
+        }
+
+        Texture2D tex = DownloadHandlerTexture.GetContent(req);
+        if (tex == null) yield break;
+
+        tex.name       = "LaunchPreview";
+        tex.wrapMode   = TextureWrapMode.Clamp;
+        tex.filterMode = FilterMode.Bilinear;
+
+        // Crop to 1:1 for the square board
+        if (tex.width != tex.height)
+            tex = CropToSquare(tex);
 
         BuildPuzzle(tex, true);
     }
@@ -145,7 +220,119 @@ public class GameManager : MonoBehaviour
     // Public API
     // ─────────────────────────────────────────────────────────────────
 
-    /// <summary>Start puzzle from a cropped sprite (called by ImageCropper).</summary>
+    // ─────────────────────────────────────────────────────────────────
+    // Launch / Gameplay mode
+    // ─────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Called by UIManager tile/arrow handlers on first interaction.
+    /// Transitions the screen from "launch" to "gameplay" mode.
+    /// </summary>
+    public void ExitLaunchMode()
+    {
+        if (!_isLaunchMode) return;
+        _isLaunchMode = false;
+        StopAutoShuffle();
+        _uiManager?.ExitLaunchMode();
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Auto-shuffle (launch mode)
+    // ─────────────────────────────────────────────────────────────────
+
+    private void StartAutoShuffle()
+    {
+        StopAutoShuffle();
+        _autoShuffleCoroutine = StartCoroutine(AutoShuffleRoutine());
+    }
+
+    private void StopAutoShuffle()
+    {
+        if (_autoShuffleCoroutine == null) return;
+        StopCoroutine(_autoShuffleCoroutine);
+        _autoShuffleCoroutine = null;
+    }
+
+    private IEnumerator AutoShuffleRoutine()
+    {
+        WaitForSeconds wait = new WaitForSeconds(1f);
+
+        while (_isLaunchMode)
+        {
+            yield return wait;
+
+            // Skip when board is not visible (e.g. user navigated to Browse screen)
+            if (!boardPanel.gameObject.activeInHierarchy) continue;
+
+            if (_isAnimating || _spawnedTiles.Count == 0) continue;
+
+            List<Vector2Int> candidates = GetMovableCells(_emptyCell);
+            // Avoid immediately reversing the last move
+            if (candidates.Count > 1) candidates.Remove(_lastAutoMoveFrom);
+            if (candidates.Count == 0) continue;
+
+            Vector2Int chosen = candidates[Random.Range(0, candidates.Count)];
+            _lastAutoMoveFrom = _emptyCell;
+
+            if (_tilesByCell.TryGetValue(chosen, out TileController tile))
+                StartCoroutine(AutoShuffleMoveRoutine(tile, chosen));
+        }
+    }
+
+    /// <summary>
+    /// Animates a single tile move for the auto-shuffle preview.
+    /// Does NOT start the timer, count moves, or check for a solved state.
+    /// </summary>
+    private IEnumerator AutoShuffleMoveRoutine(TileController tile, Vector2Int sourceCell)
+    {
+        _isAnimating = true;
+        HideAllArrows();
+
+        Vector2Int destCell = _emptyCell;
+        _tilesByCell.Remove(sourceCell);
+        _tilesByCell[destCell] = tile;
+        _emptyCell = sourceCell;
+        tile.SetCurrentCell(destCell);
+
+        yield return tile.AnimateTo(GetCellAnchoredPosition(destCell), tileMoveDuration);
+
+        // Reposition arrows at the new empty cell (for visual consistency)
+        UpdateArrows();
+        _isAnimating = false;
+    }
+
+    /// <summary>
+    /// Called by the "New Image" button.
+    /// Reloads a random API image and returns to launch mode.
+    /// </summary>
+    public void ResetToLaunchMode()
+    {
+        _isLaunchMode = true;
+        _uiManager?.EnterLaunchMode();
+
+        // Reload from API
+        if (APIHandler.LastFetchedData != null)
+        {
+            // Force reload even when tiles already exist
+            var data  = APIHandler.LastFetchedData;
+            var valid = data.results?.data?.FindAll(d => !string.IsNullOrEmpty(d.primary_image));
+            if (valid != null && valid.Count > 0)
+            {
+                var chosen = valid[Random.Range(0, valid.Count)];
+                StartCoroutine(LoadLaunchImageRoutine(chosen.primary_image));
+                return;
+            }
+        }
+
+        // Fallback: local textures
+        LoadRandomImage();
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Public API
+    // ─────────────────────────────────────────────────────────────────
+
+    /// <summary>Start puzzle from a cropped sprite (called by ArtworkFocusScreen).</summary>
     public void StartPuzzleWithCroppedSprite(Sprite croppedSprite)
     {
         if (croppedSprite == null || croppedSprite.texture == null)
@@ -153,6 +340,9 @@ public class GameManager : MonoBehaviour
             Debug.LogError("GameManager: Cropped sprite is null.");
             return;
         }
+
+        // Entering gameplay from artwork selection — exit launch mode first
+        ExitLaunchMode();
 
         Texture2D tex = croppedSprite.texture;
         tex.name = "CroppedImage";
@@ -224,6 +414,9 @@ public class GameManager : MonoBehaviour
         // ── Size the board panel to a perfect square ─────────────────
         SizeBoardPanel();
 
+        // ── Match PreviewPanel to board size & ensure it renders in front ─
+        _uiManager.MatchPreviewToBoard(boardPanel);
+
         // ── Configure GridLayoutGroup ────────────────────────────────
         ConfigureGridLayout();
 
@@ -258,6 +451,13 @@ public class GameManager : MonoBehaviour
         _uiManager.SetTimer(0f);
         _uiManager.SetStatus("Arrange the picture");
         _uiManager.SetPreview(false, _currentTexture);
+
+        // Auto-shuffle tiles every second while in launch mode
+        if (_isLaunchMode)
+        {
+            _lastAutoMoveFrom = new Vector2Int(-999, -999);
+            StartAutoShuffle();
+        }
     }
 
     /// <summary>
@@ -539,6 +739,7 @@ public class GameManager : MonoBehaviour
     /// </summary>
     private bool OnArrowPressed(Vector2Int gridDirection)
     {
+        ExitLaunchMode();   // first click switches to gameplay mode
         if (_isAnimating || _isSolved || IsPreviewVisible)
             return false;
 
@@ -552,6 +753,7 @@ public class GameManager : MonoBehaviour
 
     private void OnTileClicked(TileController tile)
     {
+        ExitLaunchMode();   // first click switches to gameplay mode
         if (_isAnimating || _isSolved || IsPreviewVisible)
             return;
 
@@ -731,6 +933,35 @@ public class GameManager : MonoBehaviour
     // ─────────────────────────────────────────────────────────────────
     // Texture helpers
     // ─────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Center-crops a texture to a 1:1 square via GPU blit.
+    /// </summary>
+    private static Texture2D CropToSquare(Texture2D source)
+    {
+        int size = Mathf.Min(source.width, source.height);
+        int offsetX = (source.width - size) / 2;
+        int offsetY = (source.height - size) / 2;
+
+        RenderTexture rt = RenderTexture.GetTemporary(source.width, source.height, 0,
+            RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
+        Graphics.Blit(source, rt);
+
+        RenderTexture prev = RenderTexture.active;
+        RenderTexture.active = rt;
+
+        Texture2D cropped = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        cropped.ReadPixels(new Rect(offsetX, offsetY, size, size), 0, 0);
+        cropped.Apply();
+
+        cropped.name       = source.name;
+        cropped.wrapMode   = TextureWrapMode.Clamp;
+        cropped.filterMode = FilterMode.Bilinear;
+
+        RenderTexture.active = prev;
+        RenderTexture.ReleaseTemporary(rt);
+        return cropped;
+    }
 
     /// <summary>
     /// Creates a readable Texture2D via GPU blit (handles non-R/W textures).

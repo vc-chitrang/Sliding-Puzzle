@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using DG.Tweening;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -12,7 +13,7 @@ public class ArrowController : MonoBehaviour
     private RectTransform _labelRect;
     private Button _button;
     [SerializeField] private TextMeshProUGUI _directionLabelText;
-    private Coroutine _pulseRoutine;
+    private Tween _pulseTween;
     private Action<Vector2Int> _pressedAction;
     private float _baseSize = 56f;
 
@@ -123,23 +124,21 @@ public class ArrowController : MonoBehaviour
 
     public void SetVisible(bool isVisible)
     {
+        _pulseTween?.Kill();
+        _pulseTween = null;
+
         gameObject.SetActive(isVisible);
 
-        if (isVisible)
+        if (isVisible && gameObject.activeInHierarchy)
         {
-            if (_pulseRoutine == null)
-            {
-                _pulseRoutine = StartCoroutine(PulseRoutine());
-            }
+            transform.localScale = Vector3.one;
+            _pulseTween = transform
+                .DOScale(1.06f, 0.25f)
+                .SetEase(Ease.InOutSine)
+                .SetLoops(-1, LoopType.Yoyo);
         }
         else
         {
-            if (_pulseRoutine != null)
-            {
-                StopCoroutine(_pulseRoutine);
-                _pulseRoutine = null;
-            }
-
             transform.localScale = Vector3.one;
         }
     }
@@ -149,13 +148,9 @@ public class ArrowController : MonoBehaviour
         _pressedAction?.Invoke(Direction);
     }
 
-    private IEnumerator PulseRoutine()
+    private void OnDestroy()
     {
-        while (true)
-        {
-            float scale = 1f + (Mathf.Sin(Time.unscaledTime * 4f) * 0.06f);
-            transform.localScale = Vector3.one * scale;
-            yield return null;
-        }
+        _pulseTween?.Kill();
+        _pulseTween = null;
     }
 }

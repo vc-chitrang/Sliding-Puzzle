@@ -1,4 +1,5 @@
 using System.Collections;
+using DG.Tweening;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -19,7 +20,7 @@ public class TileController : MonoBehaviour
     private RectTransform _rectTransform;
     private Image _tileImage;
     private Button _button;
-    private Coroutine _moveRoutine;
+    private Tween _moveTween;
 
     // ── Tile data ────────────────────────────────────────────────────
     public int Index { get; private set; }
@@ -77,52 +78,31 @@ public class TileController : MonoBehaviour
     /// </summary>
     public void SnapTo(Vector2 anchoredPosition)
     {
-        if (_moveRoutine != null)
-        {
-            StopCoroutine(_moveRoutine);
-            _moveRoutine = null;
-        }
+        _moveTween?.Kill();
+        _moveTween = null;
 
         CacheComponents();
         _rectTransform.anchoredPosition = anchoredPosition;
     }
 
     /// <summary>
-    /// Smoothly animate tile to a target anchored position.
+    /// Smoothly animate tile to a target anchored position using DOTween.
+    /// Safe to call even when the tile's GameObject is inactive.
     /// </summary>
     public IEnumerator AnimateTo(Vector2 targetPosition, float duration)
     {
-        if (_moveRoutine != null)
-        {
-            StopCoroutine(_moveRoutine);
-        }
-
-        _moveRoutine = StartCoroutine(AnimateRoutine(targetPosition, duration));
-        yield return _moveRoutine;
-        _moveRoutine = null;
+        _moveTween?.Kill();
+        CacheComponents();
+        _moveTween = _rectTransform
+            .DOAnchorPos(targetPosition, duration)
+            .SetEase(Ease.OutCubic);
+        yield return _moveTween.WaitForCompletion();
+        _moveTween = null;
     }
 
     // ─────────────────────────────────────────────────────────────────
     // Private helpers
     // ─────────────────────────────────────────────────────────────────
-
-    private IEnumerator AnimateRoutine(Vector2 targetPosition, float duration)
-    {
-        CacheComponents();
-        Vector2 start = _rectTransform.anchoredPosition;
-        float elapsed = 0f;
-
-        while (elapsed < duration)
-        {
-            elapsed += Time.deltaTime;
-            float progress = Mathf.Clamp01(elapsed / duration);
-            float eased = Mathf.SmoothStep(0f, 1f, progress);
-            _rectTransform.anchoredPosition = Vector2.LerpUnclamped(start, targetPosition, eased);
-            yield return null;
-        }
-
-        _rectTransform.anchoredPosition = targetPosition;
-    }
 
     private void CacheComponents()
     {
