@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using TMPro;
@@ -28,7 +28,6 @@ public class UIManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI _timerLabelText;
     [SerializeField] private TextMeshProUGUI _bestTimeLabelText;
     [SerializeField] private TextMeshProUGUI _statusMessageText;
-    [SerializeField] private TextMeshProUGUI _previewButtonLabelText;
 
     [Header("Gameplay Buttons / Panel")]
     [SerializeField] private RawImage    _previewImage;
@@ -36,7 +35,6 @@ public class UIManager : MonoBehaviour
     [SerializeField] private Button      _previewToggleButton;
     [SerializeField] private Button      _resetPuzzleButton;
     [SerializeField] private Button      _newImageButton;
-    [SerializeField] private Button      _closePreviewButton;
     [SerializeField] private Button      _backButton;
     [SerializeField] private AspectRatioFitter _previewImageAspectRatioFitter;
 
@@ -113,11 +111,11 @@ public class UIManager : MonoBehaviour
         if (_bestTimeLabelText == null) return;
         if (seconds < 0f)
         {
-            _bestTimeLabelText.text = "Best  --:--";
+            _bestTimeLabelText.text = "--:--";
             return;
         }
         int totalSeconds = Mathf.FloorToInt(seconds);
-        _bestTimeLabelText.text = $"Best  {totalSeconds / 60:00}:{totalSeconds % 60:00}";
+        _bestTimeLabelText.text = $"{totalSeconds / 60:00}:{totalSeconds % 60:00}";
     }
 
     public void SetStatus(string message)
@@ -143,9 +141,6 @@ public class UIManager : MonoBehaviour
         if (previewTexture != null && _previewImageAspectRatioFitter != null)
             _previewImageAspectRatioFitter.aspectRatio =
                 previewTexture.width / (float)previewTexture.height;
-
-        if (_previewButtonLabelText != null)
-            _previewButtonLabelText.text = isVisible ? "Close Preview" : "Preview";
     }
 
     /// <summary>
@@ -172,19 +167,24 @@ public class UIManager : MonoBehaviour
     private void BindButtonCallbacks()
     {
         BindButton(_resetPuzzleButton,   () => _gameManager.ResetPuzzle());
-        BindButton(_previewToggleButton, () => _gameManager.TogglePreview());
+
+        UIPressHandler handler = null;
+        _previewToggleButton.TryGetComponent<UIPressHandler>(out handler);
+        if (handler != null) {
+            handler.onPressDown.AddListener(() => {
+                _gameManager.TogglePreview(true);
+            });
+
+            handler.onPressUp.AddListener(() => {
+                _gameManager.TogglePreview(false);
+            });
+        }
 
         // "New Image" resets to launch mode with a fresh random image
         BindButton(_newImageButton, () =>
         {
             ScreenManager.Instance?.ClearStack();
             _gameManager.ResetToLaunchMode();
-        });
-
-        BindButton(_closePreviewButton, () =>
-        {
-            if (IsPreviewVisible)
-                _gameManager.TogglePreview();
         });
 
         // Back button — returns to previous screen (e.g. Artwork_Focus_Screen)
@@ -216,13 +216,11 @@ public class UIManager : MonoBehaviour
         if (_bestTimeLabelText    == null) Debug.LogError("UIManager: Footer/Best is missing.");
         if (_resetPuzzleButton    == null) Debug.LogError("UIManager: Footer/ResetButton is missing.");
         if (_previewToggleButton  == null) Debug.LogError("UIManager: Footer/PreviewButton is missing.");
-        if (_previewButtonLabelText == null) Debug.LogError("UIManager: Footer/PreviewButton/Label is missing.");
         if (_newImageButton       == null) Debug.LogError("UIManager: Footer/NewImageButton is missing.");
         if (_previewPanelObject   == null) Debug.LogError("UIManager: PreviewPanel is missing.");
         if (_previewImage         == null) Debug.LogError("UIManager: PreviewPanel/PreviewImage is missing.");
         if (_previewImageAspectRatioFitter == null)
             Debug.LogError("UIManager: PreviewPanel/PreviewImage AspectRatioFitter is missing.");
-        if (_closePreviewButton   == null) Debug.LogError("UIManager: PreviewPanel/ClosePreviewButton is missing.");
         if (_discoverArtButton    == null) Debug.LogWarning("UIManager: _discoverArtButton is missing.");
         if (_browseScreen         == null) Debug.LogWarning("UIManager: _browseScreen is missing.");
     }

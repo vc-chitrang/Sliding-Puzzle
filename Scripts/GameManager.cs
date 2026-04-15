@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
@@ -26,6 +26,7 @@ public class GameManager : MonoBehaviour
     [Header("UI Board")]
     [Tooltip("RectTransform that holds the tiles (must be inside a Canvas).")]
     [SerializeField] private RectTransform boardPanel;
+    [SerializeField] private Vector2 boardPanelPosition = Vector2.zero;
 
     [Tooltip("Padding factor (0..1) for board inside available space. 0.9 = 90 % of min dimension.")]
     [SerializeField, Range(0.5f, 1f)] private float boardPaddingFactor = 0.9f;
@@ -376,10 +377,10 @@ public class GameManager : MonoBehaviour
         BuildPuzzle(next, true);
     }
 
-    public void TogglePreview()
+    public void TogglePreview(bool isVisible)
     {
-        bool show = !_uiManager.IsPreviewVisible;
-        _uiManager.SetPreview(show, _currentTexture);
+        //bool show = !_uiManager.IsPreviewVisible;
+        _uiManager.SetPreview(isVisible, _currentTexture);
     }
 
     public string GetCurrentImageLabel()
@@ -451,6 +452,7 @@ public class GameManager : MonoBehaviour
         _uiManager.SetTimer(0f);
         _uiManager.SetStatus("Arrange the picture");
         _uiManager.SetPreview(false, _currentTexture);
+        AddOutline();
 
         // Auto-shuffle tiles every second while in launch mode
         if (_isLaunchMode)
@@ -463,31 +465,57 @@ public class GameManager : MonoBehaviour
     /// <summary>
     /// Makes the board panel a perfect 1:1 square that fits the screen.
     /// </summary>
-    private void SizeBoardPanel()
-    {
+    private void SizeBoardPanel() {
         RectTransform parent = boardPanel.parent as RectTransform;
-        if (parent == null) return;
+        if (parent == null)
+            return;
 
         float parentW = parent.rect.width;
         float parentH = parent.rect.height;
 
         // Safety: if parent hasn't laid out yet, defer to next frame
-        if (parentW <= 0f || parentH <= 0f)
-        {
+        if (parentW <= 0f || parentH <= 0f) {
             Debug.LogWarning("GameManager: Parent rect not ready yet. Using screen size fallback.");
             parentW = Screen.width;
             parentH = Screen.height;
         }
 
-        float size = Mathf.Min(parentW, parentH) * boardPaddingFactor;
+        float size = Mathf.Min(parentW,parentH) * boardPaddingFactor;
 
-        boardPanel.anchorMin = new Vector2(0.5f, 0.5f);
-        boardPanel.anchorMax = new Vector2(0.5f, 0.5f);
-        boardPanel.pivot = new Vector2(0.5f, 0.5f);
-        boardPanel.sizeDelta = new Vector2(size, size);
-        boardPanel.anchoredPosition = Vector2.zero;
+        boardPanel.anchorMin = new Vector2(0.5f,0.5f);
+        boardPanel.anchorMax = new Vector2(0.5f,0.5f);
+        boardPanel.pivot = new Vector2(0.5f,0.5f);
+        boardPanel.sizeDelta = new Vector2(size,size);
+        boardPanel.anchoredPosition = boardPanelPosition;
     }
 
+    private void AddOutline() {
+        GameObject outline = new GameObject("Outline",typeof(RectTransform),typeof(Image));
+        outline.transform.SetParent(boardPanel,false);
+        outline.transform.SetAsFirstSibling();  // behind tiles
+
+        RectTransform rt = outline.GetComponent<RectTransform>();
+        Image img = outline.GetComponent<Image>();
+
+        // Disable raycast (IMPORTANT)
+        img.raycastTarget = false;
+        img.color = Color.white;
+
+        // Apply stretch
+        SetFullStretch(rt,tileSpacing);
+    }
+
+    private void SetFullStretch(RectTransform rt,float margin) {
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+
+        rt.offsetMin = new Vector2(-margin,-margin);
+        rt.offsetMax = new Vector2(margin,margin);
+
+        rt.pivot = new Vector2(0.5f,0.5f);
+        rt.localScale = Vector3.one;
+        rt.localRotation = Quaternion.identity;
+    }
     private void ConfigureGridLayout()
     {
         if (_gridLayout == null) return;
