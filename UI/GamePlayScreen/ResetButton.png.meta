@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 5ab488f73272f94489672f7a2ae7e5d0
+guid: d5cd38895e7f4054a9596b604e6b52b1
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 7988640355943844117
-    second: 3x3_0
+      213: 5243372756566668239
+    second: ResetButton_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -24,7 +24,7 @@ TextureImporter:
     heightScale: 0.25
     normalMapFilter: 0
     flipGreenChannel: 0
-  isReadable: 1
+  isReadable: 0
   streamingMipmaps: 0
   streamingMipmapsPriority: 0
   vTOnly: 0
@@ -72,7 +72,7 @@ TextureImporter:
   platformSettings:
   - serializedVersion: 4
     buildTarget: DefaultTexturePlatform
-    maxTextureSize: 2048
+    maxTextureSize: 4096
     resizeAlgorithm: 0
     textureFormat: -1
     textureCompression: 1
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: 3x3_0
+      name: ResetButton_0
       rect:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 1405
-        height: 1436
+        width: 315
+        height: 121
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 519026ef31a5dde60800000000000000
-      internalID: 7988640355943844117
+      spriteID: fc3fd14ddb334c840800000000000000
+      internalID: 5243372756566668239
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      3x3_0: 7988640355943844117
+      ResetButton_0: 5243372756566668239
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
